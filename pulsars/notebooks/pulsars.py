@@ -61,14 +61,20 @@ scaled_data[['IP1', 'IP2', 'IP3', 'IP4', 'DM1', 'DM2', 'DM3', 'DM4']] = scaler.f
 
 scaled_data.describe()
 
+# Remove target class
+
 scaled_data_without_target = scaled_data.filter(regex="[^target]")
 x_train, x_test, y_train, y_test = train_test_split(scaled_data_without_target.values, scaled_data.target.values,
                                                     test_size=0.2, random_state=5)
+
+# Apply Random Forest classifier
 
 rf = RandomForestClassifier(n_estimators=200, random_state=3)
 rf.fit(x_train, y_train)
 form = rf.score(x_test, y_test) * 100
 print("Random Forrest accuracy : {0:.2f}%".format(form))
+
+# Check the confusion matrix
 
 y_pred = rf.predict(scaled_data_without_target)
 con_mat = confusion_matrix(scaled_data.target.T.values, y_pred)
