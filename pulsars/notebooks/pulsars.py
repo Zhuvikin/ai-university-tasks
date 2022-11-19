@@ -13,7 +13,7 @@
 #     name: jkernel
 # ---
 
-# Pulsars
+# # Pulsars
 
 # +
 import pandas as pd
