@@ -13,7 +13,10 @@
 #     name: jkernel
 # ---
 
-# # Pulsars
+# # Pulsars detection in sample of candidates
+
+# ## Introduction
+# Pulsars are the class of neutron stars which have a strong electromagnetic field. The astrophysics simulations show that this field accelerates particles (mostly electrons and positrons) up to values close to the speed of light [refer]. The part of the positrons cause strong gamma ray emission along the axis of magnetic poles. However, the star rotates around a diffetent fixed axis. Therefore, the beam of emission is pointing toward Earth only once each rotational period.
 
 # +
 import pandas as pd
@@ -34,10 +37,9 @@ import seaborn as sns
 from imblearn.over_sampling import SMOTE, ADASYN
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, roc_curve
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
-
 # -
 
 # Import data set
@@ -86,8 +88,29 @@ print(classification_report(scaled_data.target.T.values, y_pred))
 
 # Calculate ROC-curve
 
+
 predict = rf.predict(x_test)
 predict_probabilities = rf.predict_proba(x_test)
 fpr, tpr, _ = roc_curve(y_test, predict_probabilities[:, :1])
 
-print(confusion_matrix(y_test, np.where(predict_probabilities[:, :1] > 0.995, 1, 0)))
+lowest_prob = 0.9999
+print(confusion_matrix(y_test, np.where(predict_probabilities[:, :1] > lowest_prob, 1, 0)))
+print(classification_report(y_test, np.where(predict_probabilities[:, :1] > lowest_prob, 1, 0)))
+
+# +
+false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, predict_probabilities[:, :1])
+roc_auc = auc(false_positive_rate, true_positive_rate)
+
+plt.figure(figsize=(10,10))
+plt.title('Receiver Operating Characteristic')
+plt.plot(false_positive_rate, true_positive_rate, color='red', label = 'AUC = %0.2f' % roc_auc)
+plt.legend(loc = 'lower right')
+plt.plot([0, 1], [0, 1],linestyle='--')
+plt.axis('tight')
+plt.ylabel('True Positive Rate')
+plt.xlabel('False Positive Rate')
+# -
+
+thresholds
+
+
