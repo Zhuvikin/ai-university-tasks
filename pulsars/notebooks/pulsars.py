@@ -31,9 +31,34 @@
 
 import pandas as pd
 data = pd.read_csv('../../data/pulsar_stars/pulsar_stars.csv')
+data.head(5)
+
+# Let us rename the columns to have more compact titles
+
+columns = data.columns
+column_names = list(['IP1', 'IP2', 'IP3', 'IP4', 'DM1', 'DM2', 'DM3', 'DM4'])
+data = data.rename(columns = {
+    columns[0]: column_names[0], columns[1]: column_names[1], columns[2]: column_names[2], columns[3]: column_names[3],
+    columns[4]: column_names[4], columns[5]: column_names[5], columns[6]: column_names[6], columns[7]: column_names[7],
+    columns[8]: 'target'
+})
+data.head(4)
+
+# The general statistical description of the data is given by
+
+data.describe()
+
+# It can be seen that standard deviations of features are in range from `1.064040` to `106.514540` and all attributes have non-zero means. We scale the dataset to have unit variances and zero means because it is more convinient to work with.
 
 # +
-import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+scaled_data = data.copy()
+scaled_data[column_names] = scaler.fit_transform(data[column_names].to_numpy())
+scaled_data.describe()
+
+# +
 import os
 import itertools
 import numpy as np
@@ -57,19 +82,6 @@ from sklearn.model_selection import train_test_split
 # -
 
 # Import data set
-
-data = pd.read_csv('~/workspace/ai-university/data/pulsar_stars/pulsar_stars.csv')
-
-columns = data.columns
-data = data.rename(columns = {
-    columns[0]: 'IP1', columns[1]: 'IP2', columns[2]: 'IP3', columns[3]: 'IP4',
-    columns[4]: 'DM1', columns[5]: 'DM2', columns[6]: 'DM3', columns[7]: 'DM4',
-    columns[8]: 'target'
-})
-
-data.describe()
-
-# Standardize features to have zero mean and unit variance
 
 scaler = StandardScaler()
 scaled_data = data.copy()
