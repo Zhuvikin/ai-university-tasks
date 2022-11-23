@@ -72,7 +72,23 @@ plt.figure(figsize = (16, 7))
 sns.heatmap(corr, xticklabels = corr.columns, yticklabels = corr.columns, cmap = palette, square = True, annot = True)
 # -
 
-# There is a strong correlation between `IP3` - `IP4` and `DM3` - `DM4`. 
+# There is a strong correlation between `IP3` - `IP4` and `DM3` - `DM4`. However, not every feature is important for our classification issue. This is clearly seen from the following pairwise relationships. The purple points represent pulsars. The distribution densities are fit by histograms and ploted along the main diagnoal for each of the features.
+
+# +
+palette2 = sns.color_palette(["#bbbbbb", "#a800a2"])
+    
+pg = sns.PairGrid(scaled_data, palette = palette2, hue = "target", hue_order = [0, 1], vars = column_names)
+
+pg.map_diag(sns.kdeplot),
+pg.map_offdiag(plt.scatter, s = 2, alpha = 0.2)
+# -
+
+# It can be seen that some features allows one to split the data set linearly very well.
+
+# Another important point is that our data is imbalanced. We should take it into account for some classification algorithms.
+
+number_of_others, number_of_pulsars = scaled_data.target.value_counts()
+scaled_data.target.value_counts().plot(kind='pie', labels=['Others (' + str(number_of_others) + ')', 'Pulsars (' + str(number_of_pulsars) + ')'], figsize=(7, 7), colors = ['#e5e5e5', '#a800a2'])
 
 # +
 import os
