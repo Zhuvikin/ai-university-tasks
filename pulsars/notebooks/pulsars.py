@@ -57,12 +57,28 @@ scaler = StandardScaler()
 scaled_data = data.copy()
 scaled_data[column_names] = scaler.fit_transform(data[column_names].to_numpy())
 scaled_data.describe()
+# -
+
+# In order to see if there is dependence between features let us build the correlation matrix 
+
+# +
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+palette = sns.light_palette("purple", reverse = True)
+
+corr = scaled_data.filter(regex = "[^target]").corr()
+plt.figure(figsize = (16, 7))
+sns.heatmap(corr, xticklabels = corr.columns, yticklabels = corr.columns, cmap = palette, square = True, annot = True)
+# -
+
+# There is a strong correlation between `IP3` - `IP4` and `DM3` - `DM4`. 
 
 # +
 import os
 import itertools
 import numpy as np
-import matplotlib.pyplot as plt
+
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.gridspec as gridspec
 import urllib
@@ -80,15 +96,6 @@ from sklearn.metrics import classification_report, confusion_matrix, roc_curve, 
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 # -
-
-# Import data set
-
-scaler = StandardScaler()
-scaled_data = data.copy()
-scaled_data[['IP1', 'IP2', 'IP3', 'IP4', 'DM1', 'DM2', 'DM3', 'DM4']] = scaler.fit_transform(
-    data[['IP1', 'IP2', 'IP3', 'IP4', 'DM1', 'DM2', 'DM3', 'DM4']].to_numpy())
-
-scaled_data.describe()
 
 # Remove target class
 
