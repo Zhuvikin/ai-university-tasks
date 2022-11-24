@@ -90,76 +90,246 @@ pg.map_offdiag(plt.scatter, s = 2, alpha = 0.2)
 number_of_others, number_of_pulsars = scaled_data.target.value_counts()
 scaled_data.target.value_counts().plot(kind='pie', labels=['Others (' + str(number_of_others) + ')', 'Pulsars (' + str(number_of_pulsars) + ')'], figsize=(7, 7), colors = ['#e5e5e5', '#a800a2'])
 
+# ## Classification Model
+
+# We split our data to train and test sets
+
 # +
-import os
-import itertools
+from sklearn.model_selection import KFold, cross_val_score, cross_validate, train_test_split
+
+X = scaled_data.filter(regex="[^target]").values
+y = scaled_data.target.values
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 4)
+
+# sm = ADASYN(),
+# x_train_oversampled, y_train_oversampled = sm.fit_sample(x_train, y_train)
+
+# +
+# from sklearn.metrics import recall_score
+
+# scoring = ['precision_macro', 'recall_macro']
+
+# kf = KFold(n_splits = 10, random_state = 1, shuffle = False)
+# kf.get_n_splits(scaled_data_without_target.values)
+# print("Random Forrest accuracy : {0:.2f}%".format(form))
+
+# +
+# from sklearn.linear_model import LogisticRegression
+
+# scores = []
+# logistic_regression = LogisticRegression(solver = 'lbfgs')
+
+# scores = cross_validate(logistic_regression, scaled_data_without_target.values, scaled_data.target.values, scoring = scoring, cv = 5)
+# print(sorted(scores.keys()))
+
+# print(scores['fit_time'])
+# print(scores['score_time'])
+# print(scores['test_precision_macro'])
+# print(scores['test_recall_macro'])
+
+
+# print(cross_val_score(logistic_regression, scaled_data_without_target.values, scaled_data.target.values, cv = 10, scoring = 'accuracy'))
+# print(cross_val_score(logistic_regression, scaled_data_without_target.values, scaled_data.target.values, cv = 10, scoring = 'f1_macro'))
+
+# +
 import numpy as np
+from scipy import interp
+from sklearn import svm
+from sklearn.metrics import roc_curve, auc, f1_score, classification_report
+from sklearn.model_selection import StratifiedKFold
+from matplotlib.pyplot import figure
+from functools import reduce
+from benedict import benedict
 
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.gridspec as gridspec
-import urllib
-import math
-import tensorflow as tf
-from tensorflow import keras
+def average_report(reports):
+    result = benedict()
+    for path in set(benedict(reports[0]).keypaths()).difference(list(['Non-pulsars', 'Pulsars', 'macro avg', 'weighted avg'])):
+        average = reduce((lambda acc, report: acc + benedict(report)[path]), reports, 0) / len(reports)
+        result[path] = average
+    return result
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+# fig = figure(num = None, figsize=(5, 5), dpi = 80, facecolor = 'w', edgecolor = 'k')
 
-from imblearn.over_sampling import SMOTE, ADASYN
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
-from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
-# -
+# Run classifier with cross-validation and plot ROC curves
+cv = StratifiedKFold(n_splits = 6)
+classifier = svm.SVC(kernel = 'linear', probability = True, random_state = 1)
 
-# Remove target class
+target_names = ['Non-pulsars', 'Pulsars']
 
-scaled_data_without_target = scaled_data.filter(regex = "[^target]")
-x_train, x_test, y_train, y_test = train_test_split(scaled_data_without_target.values, scaled_data.target.values,
-                                                    test_size = 0.2, random_state = 5)
+tprs = []
+aucs = []
+f1_scores = []
+reports = []
+mean_fpr = np.linspace(0, 1, 100)
 
-# Apply Random Forest classifier
+i = 0
+for train, test in cv.split(X, y):
+    classifier.fit(X[train], y[train])
+    y_pred = classifier.predict(X[test])
+    
+    # Compute f1-measures
+    f1 = f1_score(y[test], y_pred)
+    f1_scores.append(f1)
+    
+    report = classification_report(y[test], y_pred, target_names = target_names, output_dict = True)
+    reports.append(report)
+    
+    # Compute ROC curve and area the curve
+    probas = classifier.predict_proba(X[test])
+    fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
+    tprs.append(interp(mean_fpr, fpr, tpr))
+    tprs[-1][0] = 0.0
+    roc_auc = auc(fpr, tpr)
+    aucs.append(roc_auc)
+#     plt.plot(fpr, tpr, lw = 1, alpha = 0.3, label = 'ROC fold %d (AUC = %0.2f)' % (i, roc_auc))
+    i += 1
 
-rf = RandomForestClassifier(n_estimators = 200, random_state = 3)
-rf.fit(x_train, y_train)
-form = rf.score(x_test, y_test) * 100
-print("Random Forrest accuracy : {0:.2f}%".format(form))
+mean_tpr = np.mean(tprs, axis=0)
+mean_tpr[-1] = 1.0
+mean_auc = auc(mean_fpr, mean_tpr)
+std_auc = np.std(aucs)
 
-# Build confusion matrix
+plt.subplot(1, 2, 1)
+plt.plot(mean_fpr, mean_tpr, color = '#a800a2',
+         label = r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc), lw = 2, alpha = 1)
 
-y_pred = rf.predict(scaled_data_without_target)
-print(confusion_matrix(scaled_data.target.T.values, y_pred))
+std_tpr = np.std(tprs, axis = 0)
+tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color = 'grey', alpha = 0.2,
+                 label = r'$\pm$ 1 std. dev.')
 
-# Check classification report
+plt.xlim([0, 0.25])
+plt.ylim([0.75, 1])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC of C-Support Vector Classifier')
+plt.legend(loc = "lower right")
 
-print(classification_report(scaled_data.target.T.values, y_pred))
+plt.subplot(1, 2, 1)
+cell_text = [[ 66386, 174296,  75131, 577908],
+        [ 58230, 381139,  78045,  99308],
+        [ 89135,  80552, 152558, 497981],
+        [ 78415,  81858, 150656, 193263],
+        [139361, 331509, 343164, 781380]]
+rows_labels = ['abc', 'def', '123', '', '123']
+column_labels = ['dad', 'erwer', '', 'rewwr']
+colors = plt.cm.BuPu(np.linspace(0, 0.5, len(rows_labels)))
+table = plt.table(cellText = cell_text, rowLabels = rows_labels, rowColours = colors, colLabels = column_labels, loc = 'center')
+table.auto_set_font_size(False)
+table.set_fontsize(14)
 
-# Calculate ROC-curve
+# table = plt.table(cellText = cell_text, rowLabels = rows_labels, rowColours = colors, colLabels = column_labels, loc = 'left')
+# table.set_fontsize(200)
 
+# plt.subplots_adjust(hspace = 0, right=0)
+plt.show()
 
-predict = rf.predict(x_test)
-predict_probabilities = rf.predict_proba(x_test)
-fpr, tpr, _ = roc_curve(y_test, predict_probabilities[:, :1])
-
-lowest_prob = 0.9999
-print(confusion_matrix(y_test, np.where(predict_probabilities[:, :1] > lowest_prob, 1, 0)))
-print(classification_report(y_test, np.where(predict_probabilities[:, :1] > lowest_prob, 1, 0)))
+print(average_report(reports))
 
 # +
-false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, predict_probabilities[:, :1])
-roc_auc = auc(false_positive_rate, true_positive_rate)
+import numpy as np
+from scipy import interp
+from sklearn import svm
+from sklearn.metrics import roc_curve, auc, f1_score, classification_report
+from sklearn.model_selection import StratifiedKFold
+from matplotlib.pyplot import figure
+from functools import reduce
+from benedict import benedict
 
-plt.figure(figsize=(10,10))
-plt.title('Receiver Operating Characteristic')
-plt.plot(false_positive_rate, true_positive_rate, color='red', label = 'AUC = %0.2f' % roc_auc)
-plt.legend(loc = 'lower right')
-plt.plot([0, 1], [0, 1],linestyle='--')
-plt.axis('tight')
-plt.ylabel('True Positive Rate')
+def average_report(reports):
+    result = benedict()
+    for path in set(benedict(reports[0]).keypaths()).difference(list(['Non-pulsars', 'Pulsars', 'macro avg', 'weighted avg'])):
+        average = reduce((lambda acc, report: acc + benedict(report)[path]), reports, 0) / len(reports)
+        result[path] = average
+    return result
+
+# fig = figure(num = None, figsize=(5, 5), dpi = 80, facecolor = 'w', edgecolor = 'k')
+fig = plt.figure(figsize=(14, 4))
+
+# Run classifier with cross-validation and plot ROC curves
+cv = StratifiedKFold(n_splits = 6)
+classifier = svm.SVC(kernel = 'linear', probability = True, random_state = 1)
+
+target_names = ['Non-pulsars', 'Pulsars']
+
+tprs = []
+aucs = []
+f1_scores = []
+reports = []
+mean_fpr = np.linspace(0, 1, 100)
+
+i = 0
+for train, test in cv.split(X, y):
+    classifier.fit(X[train], y[train])
+    y_pred = classifier.predict(X[test])
+    
+    # Compute f1-measures
+    f1 = f1_score(y[test], y_pred)
+    f1_scores.append(f1)
+    
+    report = classification_report(y[test], y_pred, target_names = target_names, output_dict = True)
+    reports.append(report)
+    
+    # Compute ROC curve and area the curve
+    probas = classifier.predict_proba(X[test])
+    fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
+    tprs.append(interp(mean_fpr, fpr, tpr))
+    tprs[-1][0] = 0.0
+    roc_auc = auc(fpr, tpr)
+    aucs.append(roc_auc)
+#     plt.plot(fpr, tpr, lw = 1, alpha = 0.3, label = 'ROC fold %d (AUC = %0.2f)' % (i, roc_auc))
+    i += 1
+
+mean_tpr = np.mean(tprs, axis=0)
+mean_tpr[-1] = 1.0
+mean_auc = auc(mean_fpr, mean_tpr)
+std_auc = np.std(aucs)
+
+ax1 = fig.add_subplot(121)
+plt.rcParams["figure.figsize"] = (5, 5)
+ax1.plot(mean_fpr, mean_tpr, color = '#a800a2',
+         label = r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc), lw = 2, alpha = 1)
+
+std_tpr = np.std(tprs, axis = 0)
+tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+ax1.fill_between(mean_fpr, tprs_lower, tprs_upper, color = 'grey', alpha = 0.2,
+                 label = r'$\pm$ 1 std. dev.')
+ax1.set_aspect(1.0)
+plt.xlim([0, 0.25])
+plt.ylim([0.75, 1])
 plt.xlabel('False Positive Rate')
-# -
+plt.ylabel('True Positive Rate')
+plt.title('ROC of C-Support Vector Classifier')
+plt.legend(loc = "lower right")
 
-thresholds
+ax2 = fig.add_subplot(122)
+font_size = 14
+bbox = [0, 0, 1, 1]
+ax2.axis('off')
+
+report = average_report(reports)
+
+def f(path):
+    return "{0:.2f}".format(report[path])
+
+cell_text = [
+    [f('Non-pulsars.precision'), f('Non-pulsars.recall'), f('Non-pulsars.f1-score')],
+    [f('Pulsars.precision'), f('Pulsars.recall'), f('Pulsars.f1-score')],
+    [ '',  '', ''],
+    ['', '', f('Pulsars.precision')],
+    [f('macro avg.precision'), f('macro avg.recall'), f('macro avg.f1-score')],
+    [f('weighted avg.precision'), f('weighted avg.recall'), f('weighted avg.f1-score')]]
+
+rows_labels = ['Non-pulsars', 'Pulsars', '', 'accuracy', 'macro avg', 'weighted avg']
+column_labels = ['precision', 'recall', 'f1-measure', 'support']
+colors = plt.cm.BuPu(np.linspace(0, 0.5, len(rows_labels)))
+table = ax2.table(cellText = cell_text, rowLabels = rows_labels, 
+                      rowColours = colors, colLabels = column_labels, loc = 'center')
+table.scale(1, 2)
+table.auto_set_font_size(False)
+table.set_fontsize(font_size)
+# -
 
 
