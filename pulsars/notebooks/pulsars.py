@@ -173,7 +173,7 @@ def evaluate_classifier(classifier):
     plt.ylim([0.75, 1])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC of C-Support Vector Classifier')
+    plt.title('ROC of ' + classifier.__class__.__name__)
     plt.legend(loc = "lower right")
 
     ax2 = fig.add_subplot(122)
@@ -234,3 +234,44 @@ from sklearn.neighbors import KNeighborsClassifier
 classifier = KNeighborsClassifier(n_neighbors = 13)
 avg_report = evaluate_classifier(classifier)
 # -
+
+# ### Decision Tree Classifier
+
+# +
+from sklearn.tree import DecisionTreeClassifier
+
+classifier = DecisionTreeClassifier()
+avg_report = evaluate_classifier(classifier)
+# -
+
+# ### Random Forest Classifier
+
+# +
+from sklearn.ensemble import RandomForestClassifier
+
+classifier = RandomForestClassifier(n_estimators = 200, random_state = 3)
+avg_report = evaluate_classifier(classifier)
+# -
+
+# ### Naive Bayes Classifier
+
+# +
+from sklearn.naive_bayes import GaussianNB
+
+classifier = GaussianNB()
+avg_report = evaluate_classifier(classifier)
+# -
+
+# ### Gradient Boosting Classifier
+
+# +
+from sklearn.ensemble import GradientBoostingClassifier
+
+classifier = GradientBoostingClassifier(n_estimators = 20, learning_rate = 0.2, max_features = 2,
+                                        max_depth = 2, random_state = 0)
+avg_report = evaluate_classifier(classifier)
+# -
+
+
+
+
