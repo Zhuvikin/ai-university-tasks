@@ -268,13 +268,13 @@ from sklearn.ensemble import GradientBoostingClassifier
 
 # Learning rate: 0.05
 
-classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.05, max_features = 2,
+classifier = GradientBoostingClassifier(n_estimators = 200, learning_rate = 0.05, max_features = 2,
                                         max_depth = 2, random_state = 0)
 avg_report_gb_lr_005 = evaluate_classifier(classifier)
 
 # Learning rate: 0.1
 
-classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.1, max_features = 2,
+classifier = GradientBoostingClassifier(n_estimators = 150, learning_rate = 0.1, max_features = 2,
                                         max_depth = 2, random_state = 0)
 avg_report_gb_lr_010 = evaluate_classifier(classifier)
 
@@ -292,10 +292,12 @@ avg_report_gb_lr_030 = evaluate_classifier(classifier)
 
 # Learning rate: 0.4
 
-classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.4, max_features = 2,
+classifier = GradientBoostingClassifier(n_estimators = 30, learning_rate = 0.4, max_features = 2,
                                         max_depth = 2, random_state = 0)
 avg_report_gb_lr_040 = evaluate_classifier(classifier)
 
 # Looks like learning rate equal to `0.1` does the job better
+
+
 
 
