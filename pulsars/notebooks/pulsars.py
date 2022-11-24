@@ -214,7 +214,7 @@ def evaluate_classifier(classifier):
 from sklearn import svm
 
 classifier = svm.SVC(kernel = 'linear', probability = True, random_state = 1)
-avg_report = evaluate_classifier(classifier)
+avg_report_svc = evaluate_classifier(classifier)
 # -
 
 # ### Logistic Regression Classifier
@@ -223,7 +223,7 @@ avg_report = evaluate_classifier(classifier)
 from sklearn.linear_model import LogisticRegression
 
 classifier = LogisticRegression(solver = 'lbfgs')
-avg_report = evaluate_classifier(classifier)
+avg_report_lr = evaluate_classifier(classifier)
 # -
 
 # ### K-Neighbors Classifier
@@ -232,7 +232,7 @@ avg_report = evaluate_classifier(classifier)
 from sklearn.neighbors import KNeighborsClassifier
 
 classifier = KNeighborsClassifier(n_neighbors = 13)
-avg_report = evaluate_classifier(classifier)
+avg_report_kn = evaluate_classifier(classifier)
 # -
 
 # ### Decision Tree Classifier
@@ -241,7 +241,7 @@ avg_report = evaluate_classifier(classifier)
 from sklearn.tree import DecisionTreeClassifier
 
 classifier = DecisionTreeClassifier()
-avg_report = evaluate_classifier(classifier)
+avg_report_dt = evaluate_classifier(classifier)
 # -
 
 # ### Random Forest Classifier
@@ -250,7 +250,7 @@ avg_report = evaluate_classifier(classifier)
 from sklearn.ensemble import RandomForestClassifier
 
 classifier = RandomForestClassifier(n_estimators = 200, random_state = 3)
-avg_report = evaluate_classifier(classifier)
+avg_report_rf = evaluate_classifier(classifier)
 # -
 
 # ### Naive Bayes Classifier
@@ -259,19 +259,43 @@ avg_report = evaluate_classifier(classifier)
 from sklearn.naive_bayes import GaussianNB
 
 classifier = GaussianNB()
-avg_report = evaluate_classifier(classifier)
+avg_report_nb = evaluate_classifier(classifier)
 # -
 
 # ### Gradient Boosting Classifier
 
-# +
 from sklearn.ensemble import GradientBoostingClassifier
 
-classifier = GradientBoostingClassifier(n_estimators = 20, learning_rate = 0.2, max_features = 2,
+# Learning rate: 0.05
+
+classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.05, max_features = 2,
                                         max_depth = 2, random_state = 0)
-avg_report = evaluate_classifier(classifier)
-# -
+avg_report_gb_lr_005 = evaluate_classifier(classifier)
 
+# Learning rate: 0.1
 
+classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.1, max_features = 2,
+                                        max_depth = 2, random_state = 0)
+avg_report_gb_lr_010 = evaluate_classifier(classifier)
+
+# Learning rate: 0.2
+
+classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.2, max_features = 2,
+                                        max_depth = 2, random_state = 0)
+avg_report_gb_lr_020 = evaluate_classifier(classifier)
+
+# Learning rate: 0.3
+
+classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.3, max_features = 2,
+                                        max_depth = 2, random_state = 0)
+avg_report_gb_lr_030 = evaluate_classifier(classifier)
+
+# Learning rate: 0.4
+
+classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.4, max_features = 2,
+                                        max_depth = 2, random_state = 0)
+avg_report_gb_lr_040 = evaluate_classifier(classifier)
+
+# Looks like learning rate equal to `0.1` does the job better
 
 
