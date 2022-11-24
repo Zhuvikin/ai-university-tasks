@@ -305,7 +305,16 @@ avg_report_gb_lr_040 = evaluate_classifier(classifier)
 # +
 from sklearn.neural_network import MLPClassifier
 
-classifier = MLPClassifier(hidden_layer_sizes = (3, 3, 3), max_iter = 500, alpha = 0.0001,
-                           solver = 'sgd', verbose = 10, random_state = 21, tol = 0.000000001)
+classifier = MLPClassifier(hidden_layer_sizes=(3, 3, 3), max_iter=500, alpha=0.0001,
+                           solver='sgd', verbose=10,  random_state=21, tol=0.000000001)
+avg_report_mlp = evaluate_classifier(classifier)
+# + {}
+from sklearn.neural_network import MLPClassifier
+
+classifier = MLPClassifier(hidden_layer_sizes=(100, 100, 100), max_iter=500, alpha=0.0001,
+                           solver='sgd', verbose=10,  random_state=21, tol=0.000000001)
 avg_report_mlp = evaluate_classifier(classifier)
 # -
+
+
+
