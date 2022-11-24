@@ -298,6 +298,14 @@ avg_report_gb_lr_040 = evaluate_classifier(classifier)
 
 # Looks like learning rate equal to `0.1` does the job better
 
+# ## Neural Network Classifiers
 
+# ### MLP Classifier
 
+# +
+from sklearn.neural_network import MLPClassifier
 
+classifier = MLPClassifier(hidden_layer_sizes = (3, 3, 3), max_iter = 500, alpha = 0.0001,
+                           solver = 'sgd', verbose = 10, random_state = 21, tol = 0.000000001)
+avg_report_mlp = evaluate_classifier(classifier)
+# -
