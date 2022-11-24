@@ -110,7 +110,6 @@ x_train, x_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, rando
 # +
 import numpy as np
 from scipy import interp
-from sklearn import svm
 from sklearn.metrics import roc_curve, auc, f1_score, classification_report
 from sklearn.model_selection import StratifiedKFold
 from matplotlib.pyplot import figure
@@ -185,7 +184,7 @@ def evaluate_classifier(classifier):
     report = average_report(reports)
 
     def f(path):
-        return "{0:.2f}".format(report[path])
+        return "{0:.4f}".format(report[path])
 
     cell_text = [
         [f('Non-pulsars.precision'), f('Non-pulsars.recall'), f('Non-pulsars.f1-score')],
@@ -211,5 +210,27 @@ def evaluate_classifier(classifier):
 
 # ### C-Support Vector Classifier
 
+# +
+from sklearn import svm
+
 classifier = svm.SVC(kernel = 'linear', probability = True, random_state = 1)
 avg_report = evaluate_classifier(classifier)
+# -
+
+# ### Logistic Regression Classifier
+
+# +
+from sklearn.linear_model import LogisticRegression
+
+classifier = LogisticRegression(solver = 'lbfgs')
+avg_report = evaluate_classifier(classifier)
+# -
+
+# ### K-Neighbors Classifier
+
+# +
+from sklearn.neighbors import KNeighborsClassifier
+
+classifier = KNeighborsClassifier(n_neighbors = 13)
+avg_report = evaluate_classifier(classifier)
+# -
