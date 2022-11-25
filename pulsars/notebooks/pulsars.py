@@ -159,7 +159,7 @@ def evaluate_classifier(classifier, X_set, y_set):
 
     i = 0
     for train, test in cv.split(X_set, y_set):
-#         print('Fold ' + str(i))
+        #         print('Fold ' + str(i))
         classifier.fit(X_set[train], y_set[train])
         y_pred = classifier.predict(X_set[test])
         # Compute reports
@@ -300,8 +300,8 @@ avg_report_gb = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # +
 from sklearn.neural_network import MLPClassifier
 
-classifier = MLPClassifier(hidden_layer_sizes=(8, 4, 2), max_iter = 500, alpha = 0.00025,
-                            solver='adam', verbose=0,  random_state=21, tol=0.000000001)
+classifier = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
+                           solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
 avg_report_mlp = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
@@ -310,27 +310,41 @@ avg_report_mlp = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # Let us summarize the results given by the various alghoritms
 
 # +
+from IPython.display import HTML, display
+import tabulate
+
 reports = [avg_report_svc, avg_report_lr, avg_report_kn, avg_report_dt,
            avg_report_rf, avg_report_nb, avg_report_gb, avg_report_mlp]
 
 classifier_names = ['C-Support Vector', 'Logistic Regression', 'K-Neighbors', 'Decision Tree',
                     'Random Forest', 'Naive Bayes', 'Gradient Boosting', 'Neural Network']
 
-print(list(map(lambda report: report['accuracy'], reports)))
-print(list(map(lambda report: report['Pulsars.precision'], reports)))
-print(list(map(lambda report: report['Pulsars.recall'], reports)))
-print(list(map(lambda report: report['Pulsars.f1-score'], reports)))
-print(list(map(lambda report: report['auc'], reports)))
+measures_names = ['Accuracy', 'Precision', 'Recall', 'F1-measure', 'AUC']
 
-# +
-from IPython.display import HTML, display
-import tabulate
+accuracies = list(map(lambda report: "{0:.4f}".format(report['accuracy'] * 100) + ' %', reports))
+precisions = list(map(lambda report: "{0:.4f}".format(report['Pulsars.precision'] * 100) + ' %', reports))
+recalls = list(map(lambda report: "{0:.4f}".format(report['Pulsars.recall'] * 100) + ' %', reports))
+f1Measures = list(map(lambda report: "{0:.4f}".format(report['Pulsars.f1-score'] * 100) + ' %', reports))
+AUCs = list(map(lambda report: "{0:.4f}".format(report['auc']), reports))
 
-table = [["Sun",696000,1989100000],
-         ["Earth",6371,5973.6],
-         ["Moon",1737,73.5],
-         ["Mars",3390,641.85]]
-display(HTML(tabulate.tabulate(table, tablefmt='html')))
+c_results = pd.DataFrame([
+    [measures_names[0]] + accuracies,
+    [measures_names[1]] + precisions,
+    [measures_names[2]] + recalls,
+    [measures_names[3]] + f1Measures,
+    [measures_names[4]] + AUCs
+], columns = [''] + classifier_names)
+
+c_results.style.applymap(lambda x: 'background-color : magenta; color: white'
+if x == max(accuracies)
+   or x == max(precisions)
+   or x == max(recalls)
+   or x == max(f1Measures)
+   or x == max(AUCs) else '')
 # -
 
+# The greatest values of correspondent measures are highlighted. It can be seen that the best ML alghorithm for pulsars classification depends on what measure is going to be used
 
+# ## Conclusion
+
+# Various ML algorithms for the task of pulsars detection are evaluated. The source is re-scaled and re-balanced to have zero mean, unit variance and the same amount of elements in both target classes. We evaluated C-Support Vector, Logistic Regression, K-Neighbors, Decision Tree, Random Forest, Naive Bayes, Gradient Boosting and Neural Network classifiers in order to determine the best one. The general discriminitive ability is given by the area under ROC curve. The alghoritm based on neural network shows the best result by AUC measure. However, it is more inportant to have higher recall, F1-measure. So, Random Forest and Gradient Boosting do the job better.
