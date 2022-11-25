@@ -29,10 +29,12 @@
 
 # The dataset is downloaded and available in the folder `../../data/pulsar_stars/`. We import the CSV file by means of Pandas 
 
+# +
 import pandas as pd
 
 data = pd.read_csv('../../data/pulsar_stars/pulsar_stars.csv')
 data.head(5)
+# -
 
 # Let us rename the columns to have more compact titles
 
@@ -66,11 +68,14 @@ scaled_data.describe()
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# %matplotlib inline
+
 palette = sns.light_palette("purple", reverse = True)
 
 corr = scaled_data.filter(regex = "[^target]").corr()
 plt.figure(figsize = (16, 7))
 sns.heatmap(corr, xticklabels = corr.columns, yticklabels = corr.columns, cmap = palette, square = True, annot = True)
+plt.show()
 # -
 
 # There is a strong correlation between `IP3` - `IP4` and `DM3` - `DM4`. However, not every feature is important for our classification issue. This is clearly seen from the following pairwise relationships. The purple points represent pulsars. The distribution densities are fit by histograms and ploted along the main diagnoal for each of the features.
@@ -102,10 +107,26 @@ from sklearn.model_selection import KFold, cross_val_score, cross_validate, trai
 
 X = scaled_data.filter(regex = "[^target]").values
 y = scaled_data.target.values
-x_train, x_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 4)
 # -
 
-# Implement classifier evaluation helper function using cross-validation and ROC analysis
+# Let resample our training data to have equal amount of pulsars and the other stars. We use undersampling technique for the further research as it shows better training results.
+
+# +
+# from imblearn.over_sampling import ADASYN
+from imblearn.under_sampling import RandomUnderSampler
+
+# sampler = ADASYN()
+# X_oversampled, y_oversampled = sampler.fit_sample(X, y)
+
+sampler = RandomUnderSampler()
+X_undersampled, y_undersampled = sampler.fit_sample(X, y)
+
+print(X.shape)
+# print(X_oversampled.shape)
+print(X_undersampled.shape)
+# -
+
+# Implement classifier evaluation helper function using cross-validation and ROC analysis. We use Stratified K-Fold alghoritm in order to split our data for the training and validation
 
 # +
 import numpy as np
@@ -126,31 +147,32 @@ def average_report(reports):
     return result
 
 
-def evaluate_classifier(classifier):
+def evaluate_classifier(classifier, X_set, y_set):
     fig = plt.figure(figsize = (14, 4))
     target_names = ['Non-pulsars', 'Pulsars']
 
-    cv = StratifiedKFold(n_splits = 6)
+    cv = StratifiedKFold(n_splits = 5)
     tprs = []
     aucs = []
-    f1_scores = []
     reports = []
     mean_fpr = np.linspace(0, 1, 100)
 
     i = 0
-    for train, test in cv.split(X, y):
-        classifier.fit(X[train], y[train])
-        y_pred = classifier.predict(X[test])
+    for train, test in cv.split(X_set, y_set):
+#         print('Fold ' + str(i))
+        classifier.fit(X_set[train], y_set[train])
+        y_pred = classifier.predict(X_set[test])
         # Compute reports
-        report = classification_report(y[test], y_pred, target_names = target_names, output_dict = True)
-        reports.append(report)
+        report = classification_report(y_set[test], y_pred, target_names = target_names, output_dict = True)
         # Compute ROC curve and area the curve
-        probas = classifier.predict_proba(X[test])
-        fpr, tpr, thresholds = roc_curve(y[test], probas[:, 1])
+        probas = classifier.predict_proba(X_set[test])
+        fpr, tpr, thresholds = roc_curve(y_set[test], probas[:, 1])
         tprs.append(interp(mean_fpr, fpr, tpr))
         tprs[-1][0] = 0.0
         roc_auc = auc(fpr, tpr)
         aucs.append(roc_auc)
+        report['auc'] = roc_auc
+        reports.append(report)
         i += 1
 
     mean_tpr = np.mean(tprs, axis = 0)
@@ -211,10 +233,11 @@ def evaluate_classifier(classifier):
 # ### C-Support Vector Classifier
 
 # +
+import matplotlib.pyplot as plt
 from sklearn import svm
 
 classifier = svm.SVC(kernel = 'linear', probability = True, random_state = 1)
-avg_report_svc = evaluate_classifier(classifier)
+avg_report_svc = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
 # ### Logistic Regression Classifier
@@ -223,7 +246,7 @@ avg_report_svc = evaluate_classifier(classifier)
 from sklearn.linear_model import LogisticRegression
 
 classifier = LogisticRegression(solver = 'lbfgs')
-avg_report_lr = evaluate_classifier(classifier)
+avg_report_lr = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
 # ### K-Neighbors Classifier
@@ -232,7 +255,7 @@ avg_report_lr = evaluate_classifier(classifier)
 from sklearn.neighbors import KNeighborsClassifier
 
 classifier = KNeighborsClassifier(n_neighbors = 13)
-avg_report_kn = evaluate_classifier(classifier)
+avg_report_kn = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
 # ### Decision Tree Classifier
@@ -241,7 +264,7 @@ avg_report_kn = evaluate_classifier(classifier)
 from sklearn.tree import DecisionTreeClassifier
 
 classifier = DecisionTreeClassifier()
-avg_report_dt = evaluate_classifier(classifier)
+avg_report_dt = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
 # ### Random Forest Classifier
@@ -250,7 +273,7 @@ avg_report_dt = evaluate_classifier(classifier)
 from sklearn.ensemble import RandomForestClassifier
 
 classifier = RandomForestClassifier(n_estimators = 200, random_state = 3)
-avg_report_rf = evaluate_classifier(classifier)
+avg_report_rf = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
 # ### Naive Bayes Classifier
@@ -259,62 +282,55 @@ avg_report_rf = evaluate_classifier(classifier)
 from sklearn.naive_bayes import GaussianNB
 
 classifier = GaussianNB()
-avg_report_nb = evaluate_classifier(classifier)
+avg_report_nb = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
 # ### Gradient Boosting Classifier
 
+# +
 from sklearn.ensemble import GradientBoostingClassifier
-
-# Learning rate: 0.05
-
-classifier = GradientBoostingClassifier(n_estimators = 200, learning_rate = 0.05, max_features = 2,
-                                        max_depth = 2, random_state = 0)
-avg_report_gb_lr_005 = evaluate_classifier(classifier)
-
-# Learning rate: 0.1
 
 classifier = GradientBoostingClassifier(n_estimators = 150, learning_rate = 0.1, max_features = 2,
                                         max_depth = 2, random_state = 0)
-avg_report_gb_lr_010 = evaluate_classifier(classifier)
+avg_report_gb = evaluate_classifier(classifier, X_undersampled, y_undersampled)
+# -
 
-# Learning rate: 0.2
-
-classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.2, max_features = 2,
-                                        max_depth = 2, random_state = 0)
-avg_report_gb_lr_020 = evaluate_classifier(classifier)
-
-# Learning rate: 0.3
-
-classifier = GradientBoostingClassifier(n_estimators = 100, learning_rate = 0.3, max_features = 2,
-                                        max_depth = 2, random_state = 0)
-avg_report_gb_lr_030 = evaluate_classifier(classifier)
-
-# Learning rate: 0.4
-
-classifier = GradientBoostingClassifier(n_estimators = 30, learning_rate = 0.4, max_features = 2,
-                                        max_depth = 2, random_state = 0)
-avg_report_gb_lr_040 = evaluate_classifier(classifier)
-
-# Looks like learning rate equal to `0.1` does the job better
-
-# ## Neural Network Classifiers
-
-# ### MLP Classifier
+# ### Neural Network Classifier
 
 # +
 from sklearn.neural_network import MLPClassifier
 
-classifier = MLPClassifier(hidden_layer_sizes=(3, 3, 3), max_iter=500, alpha=0.0001,
-                           solver='sgd', verbose=10,  random_state=21, tol=0.000000001)
-avg_report_mlp = evaluate_classifier(classifier)
-# + {}
-from sklearn.neural_network import MLPClassifier
-
-classifier = MLPClassifier(hidden_layer_sizes=(100, 100, 100), max_iter=500, alpha=0.0001,
-                           solver='sgd', verbose=10,  random_state=21, tol=0.000000001)
-avg_report_mlp = evaluate_classifier(classifier)
+classifier = MLPClassifier(hidden_layer_sizes=(8, 4, 2), max_iter = 500, alpha = 0.00025,
+                            solver='adam', verbose=0,  random_state=21, tol=0.000000001)
+avg_report_mlp = evaluate_classifier(classifier, X_undersampled, y_undersampled)
 # -
 
+# ## Comparative Analysis
+
+# Let us summarize the results given by the various alghoritms
+
+# +
+reports = [avg_report_svc, avg_report_lr, avg_report_kn, avg_report_dt,
+           avg_report_rf, avg_report_nb, avg_report_gb, avg_report_mlp]
+
+classifier_names = ['C-Support Vector', 'Logistic Regression', 'K-Neighbors', 'Decision Tree',
+                    'Random Forest', 'Naive Bayes', 'Gradient Boosting', 'Neural Network']
+
+print(list(map(lambda report: report['accuracy'], reports)))
+print(list(map(lambda report: report['Pulsars.precision'], reports)))
+print(list(map(lambda report: report['Pulsars.recall'], reports)))
+print(list(map(lambda report: report['Pulsars.f1-score'], reports)))
+print(list(map(lambda report: report['auc'], reports)))
+
+# +
+from IPython.display import HTML, display
+import tabulate
+
+table = [["Sun",696000,1989100000],
+         ["Earth",6371,5973.6],
+         ["Moon",1737,73.5],
+         ["Mars",3390,641.85]]
+display(HTML(tabulate.tabulate(table, tablefmt='html')))
+# -
 
 
