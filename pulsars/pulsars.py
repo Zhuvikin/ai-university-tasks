@@ -128,12 +128,11 @@ def measure_test_performace(classifier):
     probas = classifier.predict_proba(X)
     fpr, tpr, thresholds = roc_curve(y, probas[:, 1])
     report['auc'] = auc(fpr, tpr)
-    print(report)
+    report['fpr'] = fpr
+    report['tpr'] = tpr
     return report
 
-classifier = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-classifier.fit(X_train, y_train)
-print(measure_test_performace(classifier))
+
 # -
 
 # ### Method 2
@@ -208,30 +207,41 @@ def measures_stratified_cv(classifier, X_set, y_set, mean_fpr):
     return result
 
 
-def evaluate_classifier(classifier, X_set, y_set, generate_measures):
+def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_measures = None):
     fig = plt.figure(figsize = (17, 4))
-    mean_fpr = np.linspace(0, 1, 100)
-
-    measures = generate_measures(classifier, X_set, y_set, mean_fpr)
-    tprs = measures['tprs']
-    aucs = measures['aucs']
-    reports = measures['reports']
-
-    mean_tpr = np.mean(tprs, axis = 0)
-    mean_tpr[-1] = 1.0
-    mean_auc = auc(mean_fpr, mean_tpr)
-    std_auc = np.std(aucs)
-
+    
+    if generate_cv_measures is not None:
+        mean_fpr = np.linspace(0, 1, 100)
+        measures = generate_cv_measures(classifier, X_set, y_set, mean_fpr)
+        
+    overall_report = measure_test_performace(classifier)
+        
     ax1 = fig.add_subplot(121)
     plt.rcParams["figure.figsize"] = (5, 5)
-    ax1.plot(mean_fpr, mean_tpr, color = '#a800a2',
-             label = r'Mean (AUC = %0.4f $\pm$ %0.4f)' % (mean_auc, std_auc), lw = 2, alpha = 1)
+        
+    if generate_cv_measures is not None:
+        tprs = measures['tprs']
+        aucs = measures['aucs']
+        reports = measures['reports']
 
-    std_tpr = np.std(tprs, axis = 0)
-    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
-    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-    ax1.fill_between(mean_fpr, tprs_lower, tprs_upper, color = 'grey', alpha = 0.2,
-                     label = r'$\pm$ $\sigma$')
+        mean_tpr = np.mean(tprs, axis = 0)
+        mean_tpr[-1] = 1.0
+        mean_auc = auc(mean_fpr, mean_tpr)
+        std_auc = np.std(aucs)
+
+        ax1.plot(mean_fpr, mean_tpr, color = '#a800a2',
+                 label = r'Mean (AUC = %0.4f $\pm$ %0.4f)' % (mean_auc, std_auc), lw = 2, alpha = 1)
+    else:
+        ax1.plot(overall_report['fpr'], overall_report['tpr'], color = '#a800a2',
+                 label = r'Mean (AUC = %0.4f)' % (overall_report['auc']), lw = 2, alpha = 1)
+
+    if generate_cv_measures is not None:
+        std_tpr = np.std(tprs, axis = 0)
+        tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+        tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+        ax1.fill_between(mean_fpr, tprs_lower, tprs_upper, color = 'grey', alpha = 0.2,
+                         label = r'$\pm$ $\sigma$')
+        
     ax1.set_aspect(1.0)
     plt.xlim([0, 0.25])
     plt.ylim([0.75, 1])
@@ -244,52 +254,79 @@ def evaluate_classifier(classifier, X_set, y_set, generate_measures):
     font_size = 10
     ax2.axis('off')
 
-    report = average_report(reports)
-    overall_report = measure_test_performace(classifier)
-        
-    def rf(path):
-        return "{0:.4f}".format(report[path])
-    
+    if generate_cv_measures is not None:
+        report = average_report(reports)
+        def rf(path):
+            return "{0:.5f}".format(report[path])
+
     def gf(path):
-        return "{0:.4f}".format(overall_report[path])
+        return "{0:.5f}".format(overall_report[path])
 
-    cell_text = [
-        [rf('Non-pulsars.precision'), rf('Non-pulsars.recall'), rf('Non-pulsars.f1-score'),
-         gf('Non-pulsars.precision'), gf('Non-pulsars.recall'), gf('Non-pulsars.f1-score')],
+    if generate_cv_measures is not None:
+        cell_text = [
+            [rf('Non-pulsars.precision'), rf('Non-pulsars.recall'), rf('Non-pulsars.f1-score'),
+             gf('Non-pulsars.precision'), gf('Non-pulsars.recall'), gf('Non-pulsars.f1-score')],
+
+            [rf('Pulsars.precision'), rf('Pulsars.recall'), rf('Pulsars.f1-score'),
+             gf('Pulsars.precision'), gf('Pulsars.recall'), gf('Pulsars.f1-score')],
+            [rf('macro avg.precision'), rf('macro avg.recall'), rf('macro avg.f1-score'),
+             gf('macro avg.precision'), gf('macro avg.recall'), gf('macro avg.f1-score')],
+            [rf('weighted avg.precision'), rf('weighted avg.recall'), rf('weighted avg.f1-score'),
+             gf('weighted avg.precision'), gf('weighted avg.recall'), gf('weighted avg.f1-score')]]
+    else:
+        cell_text = [
+            [gf('Non-pulsars.precision'), gf('Non-pulsars.recall'), gf('Non-pulsars.f1-score')],
+            [gf('Pulsars.precision'), gf('Pulsars.recall'), gf('Pulsars.f1-score')],
+            [gf('macro avg.precision'), gf('macro avg.recall'), gf('macro avg.f1-score')],
+            [gf('weighted avg.precision'), gf('weighted avg.recall'), gf('weighted avg.f1-score')]]
+
+
+    rows_labels = ['Non-Pulsars', 'Pulsars', 'Macro Avg', 'Weighted Avg']
+    
+    if generate_cv_measures is not None:
+        column_labels = ['CV Avg\nPrecision', 'CV Avg\nRecall', 'CV Avg\nF1-measure', 'Test\nPrecision', 'Test\nRecall', 'Test\nF1-measure']
+    else:
+        column_labels = ['Test\nPrecision', 'Test\nRecall', 'Test\nF1-measure']
         
-        [rf('Pulsars.precision'), rf('Pulsars.recall'), rf('Pulsars.f1-score'),
-         gf('Pulsars.precision'), gf('Pulsars.recall'), gf('Pulsars.f1-score')],
-        [rf('macro avg.precision'), rf('macro avg.recall'), rf('macro avg.f1-score'),
-         gf('macro avg.precision'), gf('macro avg.recall'), gf('macro avg.f1-score')],
-        [rf('weighted avg.precision'), rf('weighted avg.recall'), rf('weighted avg.f1-score'),
-         gf('weighted avg.precision'), gf('weighted avg.recall'), gf('weighted avg.f1-score')]]
-
-    rows_labels = ['Non-pulsars', 'Pulsars', 'macro avg', 'weighted avg']
-    column_labels = ['CV\nprecision', 'CV\nrecall', 'CV\nF1-measure', 'overall\nprecision', 'overall\nrecall', 'overall\nF1-measure']
-
     gray = '#dddddd'
     purple = '#eeddee'
     gray_l = '#efefef'
     purple_l = '#ffefff'
+
+    colors = []
+    if generate_cv_measures is not None:
+        colors = [
+            [gray_l, gray_l, gray_l, purple_l, purple_l, purple_l],
+            [gray_l, gray_l, gray_l, purple_l, purple_l, purple_l],
+            [gray, gray, gray, purple, purple, purple],
+            [gray, gray, gray, purple, purple, purple],
+        ]
+    else:
+        colors = [
+            [purple_l, purple_l, purple_l],
+            [purple_l, purple_l, purple_l],
+            [purple, purple, purple],
+            [purple, purple, purple],
+        ]
     
-    colors = [
-        [gray_l, gray_l, gray_l, purple_l, purple_l, purple_l],
-        [gray_l, gray_l, gray_l, purple_l, purple_l, purple_l],
-        [gray, gray, gray, purple, purple, purple],
-        [gray, gray, gray, purple, purple, purple],
-    ]
-    
-    footer = plt.table(cellText=[[r'AUC: %0.4f' % mean_auc, 'accuracy: ' + rf('accuracy'), r'AUC: %0.4f' % overall_report['auc'], 'accuracy: ' + gf('accuracy')]],
+    if generate_cv_measures is not None:
+        foolter_cell_colors = [[gray_l, gray_l, purple_l, purple_l]]
+        cellText = [[r'AUC: %0.5f' % mean_auc, 'Accuracy: ' + rf('accuracy'), r'AUC: %0.5f' % overall_report['auc'], 'Accuracy: ' + gf('accuracy')]]
+    else:
+        foolter_cell_colors = [[purple_l, purple_l]]
+        cellText = [[r'AUC: %0.5f' % overall_report['auc'], 'Accuracy: ' + gf('accuracy')]]   
+        
+    footer = plt.table(cellText = cellText,
                          colLabels=['', '', '', ''],
                          loc='bottom',
-                         cellColours = [[gray_l, gray_l, purple_l, purple_l]],
+                         cellColours = foolter_cell_colors,
                          cellLoc = 'center',
                          bbox=[0, -0.09, 1, 0.3])
 
     footer.scale(1, 3.2)
     footer.auto_set_font_size(False)
     footer.set_fontsize(font_size)
-    
+
     table = ax2.table(cellText = cell_text, rowLabels = rows_labels, cellColours = colors, 
                       colLabels = column_labels, loc = 'center', cellLoc = 'center')
     table.scale(1, 3.2)
@@ -297,8 +334,6 @@ def evaluate_classifier(classifier, X_set, y_set, generate_measures):
     table.set_fontsize(font_size)
         
     return overall_report
-
-
 # -
 
 # ### Method 3
@@ -400,6 +435,10 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
 
 # +
 from sklearn.linear_model import LogisticRegression
+
+classifier = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+classifier.fit(X_train, y_train)
+r = evaluate_classifier(classifier)
 
 classifier_lr_u = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
 avg_report_lr_u = evaluate_classifier(classifier_lr_u, X_undersampled, y_undersampled, measures_stratified_cv)
