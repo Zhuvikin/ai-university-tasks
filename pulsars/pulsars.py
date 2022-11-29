@@ -112,20 +112,28 @@ y = scaled_data.target.values
 # ### Method 1
 
 # +
-X_train_1, X_test_1, y_train_1, y_test_1 = train_test_split(X, y, test_size = 0.3, random_state = 0)
+from benedict import benedict
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_curve, auc, f1_score, classification_report
 
-classifierlr = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+test_size = 0.3
 
-classifierlr.fit(X_train_1, y_train_1)
-y_pred_1 = classifierlr.predict(X_test_1)
-report = classification_report(y_test_1, y_pred_1, target_names = target_names, output_dict = True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state = 0)
+target_names = ['Non-pulsars', 'Pulsars']
 
-probas_1 = classifierlr.predict_proba(X)
-fpr, tpr, thresholds = roc_curve(y, probas_1[:, 1])
-auc_1 = auc(fpr, tpr)
+def measure_test_performace(classifier): 
+    y_pred = classifier.predict(X_test)
+    report = benedict(classification_report(y_test, y_pred, target_names = target_names, output_dict = True))
 
-print(report)
-print(auc_1)
+    probas = classifier.predict_proba(X)
+    fpr, tpr, thresholds = roc_curve(y, probas[:, 1])
+    report['auc'] = auc(fpr, tpr)
+    print(report)
+    return report
+
+classifier = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+classifier.fit(X_train, y_train)
+print(measure_test_performace(classifier))
 # -
 
 # ### Method 2
@@ -157,9 +165,6 @@ from sklearn.metrics import roc_curve, auc, f1_score, classification_report
 from sklearn.model_selection import StratifiedKFold
 from matplotlib.pyplot import figure
 from functools import reduce
-from benedict import benedict
-
-target_names = ['Non-pulsars', 'Pulsars']
 
 
 def average_report(reports):
@@ -207,7 +212,6 @@ def evaluate_classifier(classifier, X_set, y_set, generate_measures):
     fig = plt.figure(figsize = (17, 4))
     mean_fpr = np.linspace(0, 1, 100)
 
-    # measures_stratified_cv
     measures = generate_measures(classifier, X_set, y_set, mean_fpr)
     tprs = measures['tprs']
     aucs = measures['aucs']
@@ -241,13 +245,8 @@ def evaluate_classifier(classifier, X_set, y_set, generate_measures):
     ax2.axis('off')
 
     report = average_report(reports)
-    overall_y_pred = classifier.predict(X)
-    overall_report = benedict(classification_report(y, overall_y_pred, target_names = target_names, output_dict = True))
-    
-    overall_probas = classifier.predict_proba(X)
-    fpr, tpr, thresholds = roc_curve(y, overall_probas[:, 1])
-    overall_auc = auc(fpr, tpr)
-    
+    overall_report = measure_test_performace(classifier)
+        
     def rf(path):
         return "{0:.4f}".format(report[path])
     
@@ -280,7 +279,7 @@ def evaluate_classifier(classifier, X_set, y_set, generate_measures):
         [gray, gray, gray, purple, purple, purple],
     ]
     
-    footer = plt.table(cellText=[[r'AUC: %0.4f' % mean_auc, 'accuracy: ' + rf('accuracy'), r'AUC: %0.4f' % overall_auc, 'accuracy: ' + gf('accuracy')]],
+    footer = plt.table(cellText=[[r'AUC: %0.4f' % mean_auc, 'accuracy: ' + rf('accuracy'), r'AUC: %0.4f' % overall_report['auc'], 'accuracy: ' + gf('accuracy')]],
                          colLabels=['', '', '', ''],
                          loc='bottom',
                          cellColours = [[gray_l, gray_l, purple_l, purple_l]],
@@ -308,7 +307,10 @@ def evaluate_classifier(classifier, X_set, y_set, generate_measures):
 from math import floor, ceil
 import random
 
-non_pulsars_to_pulsars_ratio = floor(number_of_others / number_of_pulsars)
+train_number_of_others = floor((1 - test_size) * number_of_others)
+train_number_of_pulsars = floor((1 - test_size) * number_of_pulsars)
+
+non_pulsars_to_pulsars_ratio = floor(train_number_of_others / train_number_of_pulsars)
 
 number_of_pulsars_folds = 5
 number_of_non_pulsars_folds = number_of_pulsars_folds * non_pulsars_to_pulsars_ratio
@@ -322,9 +324,9 @@ pulsars_X = pulsars.copy()
 
 print('Number of non-pulsar stars is at least', non_pulsars_to_pulsars_ratio, 'times higher.')
 new_number_of_others = number_of_non_pulsars_folds * floor(
-    non_pulsars_to_pulsars_ratio * number_of_pulsars / number_of_non_pulsars_folds)
-to_be_removed = number_of_others - new_number_of_others
-print('Drop', '{0:.1f}'.format(100 * to_be_removed / number_of_others),
+    non_pulsars_to_pulsars_ratio * train_number_of_pulsars / number_of_non_pulsars_folds)
+to_be_removed = train_number_of_others - new_number_of_others
+print('Drop', '{0:.1f}'.format(100 * to_be_removed / train_number_of_others),
       '% of non-pulsar stars to have amount divisible by', non_pulsars_to_pulsars_ratio, 'and', number_of_pulsars_folds)
 
 random.seed(5)
