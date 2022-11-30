@@ -606,19 +606,31 @@ report_kn_3 = evaluate_classifier(classifier_kn_3, nonPulsarFolds, pulsarFolds, 
 # ### Decision Tree Classifier
 
 # +
-# from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier
 
-# classifier = DecisionTreeClassifier(random_state = 0)
-# avg_report_dt = evaluate_classifier(classifier, X_undersampled, y_undersampled, measures_stratified_cv)
+classifier_dt_1 = DecisionTreeClassifier(random_state = 0)
+report_dt_1 = evaluate_classifier(classifier_dt_1)
+
+classifier_dt_2 = DecisionTreeClassifier(random_state = 0)
+report_dt_2 = evaluate_classifier(classifier_dt_2, X_undersampled, y_undersampled, measures_stratified_cv)
+
+classifier_dt_3 = DecisionTreeClassifier(random_state = 0)
+report_dt_3 = evaluate_classifier(classifier_dt_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### Random Forest Classifier
 
 # +
-# from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 
-# classifier = RandomForestClassifier(n_estimators = 200, random_state = 0)
-# avg_report_rf = evaluate_classifier(classifier, X_undersampled, y_undersampled, measures_stratified_cv)
+classifier_rf_1 = RandomForestClassifier(n_estimators = 200, random_state = 0)
+report_rf_1 = evaluate_classifier(classifier_rf_1)
+
+classifier_rf_2 = RandomForestClassifier(n_estimators = 200, random_state = 0)
+report_rf_2 = evaluate_classifier(classifier_rf_2, X_undersampled, y_undersampled, measures_stratified_cv)
+
+classifier_rf_3 = RandomForestClassifier(n_estimators = 200, random_state = 0)
+report_rf_3 = evaluate_classifier(classifier_rf_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### Naive Bayes Classifier
@@ -658,7 +670,9 @@ report_kn_3 = evaluate_classifier(classifier_kn_3, nonPulsarFolds, pulsarFolds, 
 reports = np.array([
     [report_lr_1, report_lr_2, report_lr_3],
     [report_svm_1, report_svm_2, report_svm_3],
-    [report_kn_1, report_kn_2, report_kn_3]
+    [report_kn_1, report_kn_2, report_kn_3],
+    [report_dt_1, report_dt_2, report_dt_3],
+    [report_rf_1, report_rf_2, report_rf_3]
 ])
 
 classifier_names = ['Logistic Regression', 'C-Support Vector', 'K-Neighbors', 'Decision Tree', 'Random Forest',
@@ -702,7 +716,8 @@ c_results = pd.DataFrame([
     [measures_names[4]] + list(map(lambda v: cell(v, 'auc'), AUCs)),
     [measures_names[5]] + list(map(lambda v: cell(v, 'train_time'), trainTimes)),
     [measures_names[6]] + list(map(lambda v: cell(v, 'prediction_time'), predictionTimes))
-], columns = [''] + [name + ' ' + str(floor(i / 2) + 1) for i, name in enumerate(classifier_names * 3)])
+], columns = [''] + [name + ' ' + str(floor(i / len(classifier_names)) + 1) for i, name in
+                     enumerate(classifier_names * 3)])
 
 max_accuracy = cell(max(accuracies), 'accuracy')
 max_precision = cell(max(precisions), 'Pulsars.precision')
@@ -722,14 +737,14 @@ min2_prediction_time = cell(min(list(filter(lambda v: v != min(predictionTimes),
 
 
 def highlighting(x):
-    if x == max_accuracy or x == max_precision or x == max_recall or x == max_accuracy or x == max_auc or x == min_train_time or x == min_prediction_time:
+    if x == max_accuracy or x == max_precision or x == max_recall or x == max_f1Measure or x == max_auc or x == min_train_time or x == min_prediction_time:
         return 'background-color : ' + pulsars_color + '; color: white'
-    if x == max2_accuracy or x == max2_precision or x == max2_recall or x == max2_accuracy or x == max2_auc or x == min2_train_time or x == min2_prediction_time:
+    if x == max2_accuracy or x == max2_precision or x == max2_recall or x == max2_f1Measure or x == max2_auc or x == min2_train_time or x == min2_prediction_time:
         return 'background-color : #f2c3e9'
     return ''
 
 
-c_results.style.applymap(highlighting)
+c_results.reindex(sorted(c_results.columns), axis = 1).T.style.applymap(highlighting)
 # -
 
 # The greatest values of correspondent measures are highlighted. It can be seen that the best ML alghorithm for pulsars classification depends on what measure is going to be used
