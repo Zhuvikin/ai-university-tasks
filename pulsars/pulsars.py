@@ -301,6 +301,7 @@ def measures_stratified_cv(classifier, X_set, y_set, mean_fpr):
     reports = []
     i = 0
     for train, test in cv.split(X_set, y_set):
+        print(str(i))
         train_model(classifier, X_set[train], y_set[train], X_set[test], y_set[test], tprs, aucs, reports, mean_fpr)
         i += 1
     result = dict()
@@ -322,6 +323,7 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
     train_time = time.time() - start
 
     overall_report = measure_test_performace(classifier)
+    overall_report['train_time'] = train_time
 
     ax1 = fig.add_subplot(121)
     plt.rcParams["figure.figsize"] = (5, 5)
@@ -525,7 +527,7 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
 
     combinations = list(map(lambda k: [k, k % number_of_pulsars_folds], range(0, number_of_non_pulsars_folds)))
     for np_k, p_k in combinations:
-        #         print(str(i))
+        print(str(i))
         np_rest = list(range(0, number_of_non_pulsars_folds))
         np_rest.remove(np_k)
 
@@ -558,38 +560,47 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
 # ### Logistic Regression Classifier
 
 # +
-from sklearn.linear_model import LogisticRegression
+# from sklearn.linear_model import LogisticRegression
 
-classifier_lr_1 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-report_lr_1 = evaluate_classifier(classifier_lr_1)
+# classifier_lr_1 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+# report_lr_1 = evaluate_classifier(classifier_lr_1)
 
-classifier_lr_2 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-report_lr_2 = evaluate_classifier(classifier_lr_2, X_undersampled, y_undersampled, measures_stratified_cv)
+# classifier_lr_2 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+# report_lr_2 = evaluate_classifier(classifier_lr_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-classifier_lr_3 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+# classifier_lr_3 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+# report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### C-Support Vector Classifier
 
 # +
-# import matplotlib.pyplot as plt
 # from sklearn import svm
 
-# classifier_svc_u = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-# avg_report_svc_u = evaluate_classifier(classifier_svc_u, X_undersampled, y_undersampled, measures_stratified_cv)
+# classifier_svm_1 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+# report_svm_1 = evaluate_classifier(classifier_svm_1)
 
-# classifier_svc_f = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-# avg_report_svc_f = evaluate_classifier(classifier_svc_f, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+# classifier_svm_2 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+# report_svm_2 = evaluate_classifier(classifier_svm_2, X_undersampled, y_undersampled, measures_stratified_cv)
+
+# classifier_svm_3 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+# report_svm_3 = evaluate_classifier(classifier_svm_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
+
 
 # ### K-Neighbors Classifier
 
 # +
-# from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
-# classifier = KNeighborsClassifier(n_neighbors = 13)
-# avg_report_kn = evaluate_classifier(classifier, X_undersampled, y_undersampled, measures_stratified_cv)
+classifier_kn_1 = KNeighborsClassifier(n_neighbors = 13)
+report_kn_1 = evaluate_classifier(classifier_kn_1)
+
+classifier_kn_2 = KNeighborsClassifier(n_neighbors = 13)
+report_kn_2 = evaluate_classifier(classifier_kn_2, X_undersampled, y_undersampled, measures_stratified_cv)
+
+classifier_kn_3 = KNeighborsClassifier(n_neighbors = 13)
+report_kn_3 = evaluate_classifier(classifier_kn_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### Decision Tree Classifier
@@ -644,49 +655,81 @@ report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, 
 # Let us summarize the results given by the various alghoritms
 
 # +
-# from IPython.display import HTML, display
-# import tabulate
+reports = np.array([
+    [report_lr_1, report_lr_2, report_lr_3],
+    [report_svm_1, report_svm_2, report_svm_3],
+    [report_kn_1, report_kn_2, report_kn_3]
+])
 
-# reports = [avg_report_svc_u, avg_report_lr_u, avg_report_kn_u, avg_report_dt_u,
-#            avg_report_rf_u, avg_report_nb_u, avg_report_gb_u, avg_report_mlp_u]
+classifier_names = ['Logistic Regression', 'C-Support Vector', 'K-Neighbors', 'Decision Tree', 'Random Forest',
+                    'Naive Bayes', 'Gradient Boosting', 'Neural Network'][:reports.shape[0]]
 
-# classifier_names = ['C-Support Vector', 'Logistic Regression', 'K-Neighbors', 'Decision Tree',
-#                     'Random Forest', 'Naive Bayes', 'Gradient Boosting', 'Neural Network']
-
-# measures_names = ['Accuracy', 'Precision', 'Recall', 'F1-measure', 'AUC']
-
-
-# def cell(report, name):
-#     if name == 'auc':
-#         return "{0:.4f}".format(report[name])
-#     else:
-#         return "{0:.4f}".format(report[name] * 100) + ' %'
+measures_names = ['Accuracy', 'Precision', 'Recall', 'F1-measure', 'AUC', 'Train Time', 'Prediction Time']
 
 
-# def row(reports, name):
-#     return list(map(lambda report: cell(report, name), reports))
+def cell(value, name):
+    if name == 'auc':
+        return "{0:.4f}".format(value)
+    elif name == 'train_time':
+        return "{0:.4f} ms".format(value * 1000)
+    elif name == 'prediction_time':
+        return "{0:.4f} µs".format(value * 1000000)
+    else:
+        return "{0:.4f}".format(value * 100) + ' %'
 
 
-# accuracies = row(reports, 'accuracy')
-# precisions = row(reports, 'Pulsars.precision')
-# recalls = row(reports, 'Pulsars.recall')
-# f1Measures = row(reports, 'Pulsars.f1-score')
-# AUCs = row(reports, 'auc')
+def row(reports, name):
+    return list(map(lambda report: report[name], reports))
 
-# c_results = pd.DataFrame([
-#     [measures_names[0]] + accuracies,
-#     [measures_names[1]] + precisions,
-#     [measures_names[2]] + recalls,
-#     [measures_names[3]] + f1Measures,
-#     [measures_names[4]] + AUCs
-# ], columns = [''] + classifier_names)
 
-# c_results.style.applymap(lambda x: 'background-color : magenta; color: white'
-# if x == max(accuracies)
-#    or x == max(precisions)
-#    or x == max(recalls)
-#    or x == max(f1Measures)
-#    or x == max(AUCs) else '')
+accuracies = row(reports[:, 0], 'accuracy') + row(reports[:, 1], 'accuracy') + row(reports[:, 2], 'accuracy')
+precisions = row(reports[:, 0], 'Pulsars.precision') + row(reports[:, 1], 'Pulsars.precision') + row(reports[:, 2],
+                                                                                                     'Pulsars.precision')
+recalls = row(reports[:, 0], 'Pulsars.recall') + row(reports[:, 1], 'Pulsars.recall') + row(reports[:, 2],
+                                                                                            'Pulsars.recall')
+f1Measures = row(reports[:, 0], 'Pulsars.f1-score') + row(reports[:, 1], 'Pulsars.f1-score') + row(reports[:, 2],
+                                                                                                   'Pulsars.f1-score')
+AUCs = row(reports[:, 0], 'auc') + row(reports[:, 1], 'auc') + row(reports[:, 2], 'auc')
+trainTimes = row(reports[:, 0], 'train_time') + row(reports[:, 1], 'train_time') + row(reports[:, 2], 'train_time')
+predictionTimes = row(reports[:, 0], 'prediction_time') + row(reports[:, 1], 'prediction_time') + row(reports[:, 2],
+                                                                                                      'prediction_time')
+
+c_results = pd.DataFrame([
+    [measures_names[0]] + list(map(lambda v: cell(v, 'accuracy'), accuracies)),
+    [measures_names[1]] + list(map(lambda v: cell(v, 'Pulsars.precision'), precisions)),
+    [measures_names[2]] + list(map(lambda v: cell(v, 'Pulsars.recall'), recalls)),
+    [measures_names[3]] + list(map(lambda v: cell(v, 'Pulsars.f1-score'), f1Measures)),
+    [measures_names[4]] + list(map(lambda v: cell(v, 'auc'), AUCs)),
+    [measures_names[5]] + list(map(lambda v: cell(v, 'train_time'), trainTimes)),
+    [measures_names[6]] + list(map(lambda v: cell(v, 'prediction_time'), predictionTimes))
+], columns = [''] + [name + ' ' + str(floor(i / 2) + 1) for i, name in enumerate(classifier_names * 3)])
+
+max_accuracy = cell(max(accuracies), 'accuracy')
+max_precision = cell(max(precisions), 'Pulsars.precision')
+max_recall = cell(max(recalls), 'Pulsars.recall')
+max_f1Measure = cell(max(f1Measures), 'Pulsars.f1-score')
+max_auc = cell(max(AUCs), 'auc')
+min_train_time = cell(min(trainTimes), 'train_time')
+min_prediction_time = cell(min(predictionTimes), 'prediction_time')
+
+max2_accuracy = cell(max(list(filter(lambda v: v != max(accuracies), accuracies))), 'accuracy')
+max2_precision = cell(max(list(filter(lambda v: v != max(precisions), precisions))), 'Pulsars.precision')
+max2_recall = cell(max(list(filter(lambda v: v != max(recalls), recalls))), 'Pulsars.recall')
+max2_f1Measure = cell(max(list(filter(lambda v: v != max(f1Measures), f1Measures))), 'Pulsars.f1-score')
+max2_auc = cell(max(list(filter(lambda v: v != max(AUCs), AUCs))), 'auc')
+min2_train_time = cell(min(list(filter(lambda v: v != min(trainTimes), trainTimes))), 'train_time')
+min2_prediction_time = cell(min(list(filter(lambda v: v != min(predictionTimes), predictionTimes))), 'prediction_time')
+
+
+def highlighting(x):
+    if x == max_accuracy or x == max_precision or x == max_recall or x == max_accuracy or x == max_auc or x == min_train_time or x == min_prediction_time:
+        return 'background-color : ' + pulsars_color + '; color: white'
+    if x == max2_accuracy or x == max2_precision or x == max2_recall or x == max2_accuracy or x == max2_auc or x == min2_train_time or x == min2_prediction_time:
+        return 'background-color : #f2c3e9'
+    return ''
+
+
+c_results.style.applymap(highlighting)
 # -
 
 # The greatest values of correspondent measures are highlighted. It can be seen that the best ML alghorithm for pulsars classification depends on what measure is going to be used
@@ -694,46 +737,3 @@ report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, 
 # ## Conclusion
 
 # Various ML algorithms for the task of pulsars detection are evaluated. The source is re-scaled and re-balanced to have zero mean, unit variance and the same amount of elements in both target classes. We evaluated C-Support Vector, Logistic Regression, K-Neighbors, Decision Tree, Random Forest, Naive Bayes, Gradient Boosting and Neural Network classifiers in order to determine the best one. The general discriminitive ability is given by the area under ROC curve. The alghoritm based on neural network shows the best result by AUC measure. However, it is more inportant to have higher recall, F1-measure. So, Random Forest and Gradient Boosting do the job better.
-
-# +
-# classifier = svm.SVC(kernel = 'linear', probability = True, random_state = 0)
-# avg_report_svc = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-# -
-
-classifier_lr_f = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-avg_report_lr_f = evaluate_classifier(classifier_lr_f, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-
-# +
-# X = scaled_data.filter(regex = "[^target]").values
-# y = scaled_data.target.values
-
-# global_y_pred = classifier.predict(X)
-# global_report = classification_report(y, y_pred, target_names = target_names, output_dict = True)
-
-# print(global_report)
-
-# +
-# classifier = KNeighborsClassifier(n_neighbors = 13)
-# avg_report_kn = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-
-# +
-# classifier = DecisionTreeClassifier(random_state = 0)
-# avg_report_dt = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-
-# +
-# classifier = RandomForestClassifier(n_estimators = 200, random_state = 0)
-# avg_report_rf = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-
-# +
-# classifier = GaussianNB()
-# avg_report_nb = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-
-# +
-# classifier = GradientBoostingClassifier(n_estimators = 150, learning_rate = 0.1, max_features = 2,
-#                                         max_depth = 2, random_state = 0)
-# avg_report_gb = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-
-# +
-# classifier = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
-#                            solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
-# avg_report_mlp = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
