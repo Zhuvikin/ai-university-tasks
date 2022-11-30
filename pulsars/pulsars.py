@@ -99,6 +99,8 @@ scaled_data.target.value_counts().plot(kind = 'pie', labels = ['Others (' + str(
                                                                'Pulsars (' + str(number_of_pulsars) + ')'],
                                        figsize = (7, 7), colors = ['#e5e5e5', '#a800a2'])
 
+# Next, we reduce the dimension of the features using PCA in order to take a look on the data clusters
+
 # +
 from sklearn.decomposition import PCA
 
@@ -121,6 +123,9 @@ ax1.scatter(pulsarComponents[:, 0], pulsarComponents[:, 1], s = 10, c = pulsars_
 ax1.axis('tight')
 plt.legend(loc = 'lower left');
 plt.show()
+# -
+
+# It is clearly seen that the clusters have some anomalies. Let's remove it by means of Local Outlier Factor alghorithm
 
 # +
 import numpy as np
@@ -182,13 +187,20 @@ if remove_outliers:
 
 # ## Classification Model
 
-# We split our data to train and test sets
+# We split our dataset to train and test subsets. Note that we add previously detected outliers to the final test subset. The following 3 methods are used in order to train the classification model. The final scores are measured using the test subset.
+#
+# 1. Train classifier using the initial train set with the only pass 
+# 2. Undersample the train set in order to have the same amount of elements in both pulsar and non-pulsar classes. Split data to 5 folds and train using cross-validation
+# 2. Split the pulsars subset to 5 folds. Split non-pulsars to folds with the same size as for pulsars. The method gives 50 folds (5 for pulsars and 45 for non-pulsars) in total. The training is performed using cross-validation
 
 # +
 from sklearn.model_selection import KFold, cross_val_score, cross_validate, train_test_split
 
 X = clear_data.filter(regex = "[^target]").values
 y = clear_data.target.values
+
+test_size = 0.3
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state = 0)
 # -
 
 # ### Method 1
@@ -199,9 +211,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_curve, auc, f1_score, classification_report
 from tqdm import tqdm
 
-test_size = 0.3
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state = 0)
 
 # Add outliers to the test set
 if remove_outliers:
@@ -250,7 +259,7 @@ from imblearn.under_sampling import RandomUnderSampler
 # X_oversampled, y_oversampled = sampler.fit_sample(X, y)
 
 sampler = RandomUnderSampler(random_state = 1)
-X_undersampled, y_undersampled = sampler.fit_sample(X, y)
+X_undersampled, y_undersampled = sampler.fit_sample(X_train, y_train)
 
 print(X.shape)
 # print(X_oversampled.shape)
@@ -675,17 +684,17 @@ report_gb_3 = evaluate_classifier(classifier_gb_3, nonPulsarFolds, pulsarFolds, 
 # +
 from sklearn.neural_network import MLPClassifier
 
-# classifier_nn_1 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
-#                            solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
-# report_nn_1 = evaluate_classifier(classifier_nn_1)
+classifier_nn_1 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
+                           solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
+report_nn_1 = evaluate_classifier(classifier_nn_1)
 
-# classifier_nn_2 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
-#                            solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
-# report_nn_2 = evaluate_classifier(classifier_nn_2, X_undersampled, y_undersampled, measures_stratified_cv)
+classifier_nn_2 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
+                           solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
+report_nn_2 = evaluate_classifier(classifier_nn_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-# classifier_nn_3 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
-#                            solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
-# report_nn_3 = evaluate_classifier(classifier_nn_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+classifier_nn_3 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
+                           solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
+report_nn_3 = evaluate_classifier(classifier_nn_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ## Comparative Analysis
@@ -701,7 +710,7 @@ reports = np.array([
     [report_rf_1, report_rf_2, report_rf_3],
     [report_nb_1, report_nb_2, report_nb_3],
     [report_gb_1, report_gb_2, report_gb_3],
-    #     [report_nn_1, report_nn_2, report_nn_3]
+    [report_nn_1, report_nn_2, report_nn_3]
 ])
 
 classifier_names = ['Logistic Regression', 'C-Support Vector', 'K-Neighbors', 'Decision Tree', 'Random Forest',
@@ -780,4 +789,4 @@ c_results.reindex(sorted(c_results.columns), axis = 1).T.style.applymap(highligh
 
 # ## Conclusion
 
-# Various ML algorithms for the task of pulsars detection are evaluated. The source is re-scaled and re-balanced to have zero mean, unit variance and the same amount of elements in both target classes. We evaluated C-Support Vector, Logistic Regression, K-Neighbors, Decision Tree, Random Forest, Naive Bayes, Gradient Boosting and Neural Network classifiers in order to determine the best one. The general discriminitive ability is given by the area under ROC curve. The alghoritm based on neural network shows the best result by AUC measure. However, it is more inportant to have higher recall, F1-measure. So, Random Forest and Gradient Boosting do the job better.
+# Various ML algorithms for the task of pulsars detection are evaluated. The source is re-scaled and re-balanced to have zero mean, unit variance and the same amount of elements in both target classes. We evaluated C-Support Vector, Logistic Regression, K-Neighbors, Decision Tree, Random Forest, Naive Bayes, Gradient Boosting and Neural Network classifiers in order to determine the best one. The general discriminitive ability is given by the area under ROC curve. Third method with adaptive custom cross validation and random forest algorithm shows the best quality of classification. However, the train time is not so good and it takes more time to predict. 
