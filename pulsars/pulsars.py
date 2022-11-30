@@ -60,6 +60,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 from tqdm import tqdm
+
 # -
 
 data = pd.read_csv('../data/pulsar_stars/pulsar_stars.csv')
@@ -285,14 +286,14 @@ def average_report(reports):
     return result
 
 
-def train_model(classifier, X_train, y_train, X_test, y_test, tprs, aucs, reports, mean_fpr):
-    classifier.fit(X_train, y_train)
-    y_pred = classifier.predict(X_test)
+def train_model(classifier, m_X_train, m_y_train, m_X_test, m_y_test, tprs, aucs, reports, mean_fpr):
+    classifier.fit(m_X_train, m_y_train)
+    y_pred = classifier.predict(m_X_test)
     # Compute reports
-    report = classification_report(y_test, y_pred, target_names = target_names, output_dict = True)
+    report = classification_report(m_y_test, y_pred, target_names = target_names, output_dict = True)
     # Compute ROC curve and area the curve
-    probas = classifier.predict_proba(X_test)
-    fpr, tpr, thresholds = roc_curve(y_test, probas[:, 1])
+    probas = classifier.predict_proba(m_X_test)
+    fpr, tpr, thresholds = roc_curve(m_y_test, probas[:, 1])
     tprs.append(interp(mean_fpr, fpr, tpr))
     tprs[-1][0] = 0.0
     roc_auc = auc(fpr, tpr)
