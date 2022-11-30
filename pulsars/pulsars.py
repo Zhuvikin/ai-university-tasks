@@ -197,6 +197,7 @@ y = clear_data.target.values
 from benedict import benedict
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_curve, auc, f1_score, classification_report
+from tqdm import tqdm
 
 test_size = 0.3
 
@@ -267,8 +268,6 @@ from sklearn.model_selection import StratifiedKFold
 from matplotlib.pyplot import figure
 from functools import reduce
 import time
-from ipywidgets import IntProgress
-from IPython.display import display
 
 
 def average_report(reports):
@@ -304,12 +303,8 @@ def measures_stratified_cv(classifier, X_set, y_set, mean_fpr):
     reports = []
 
     i = 0
-    f = IntProgress(min = 0, max = folds, bar_style = 'info', description = 'Training (2):')
-    display(f)
-    for train, test in cv.split(X_set, y_set):
-        #         print(str(i))
+    for train, test in tqdm(cv.split(X_set, y_set)):
         train_model(classifier, X_set[train], y_set[train], X_set[test], y_set[test], tprs, aucs, reports, mean_fpr)
-        f.value += 1
         i += 1
 
     result = dict()
@@ -327,10 +322,9 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
         mean_fpr = np.linspace(0, 1, 100)
         measures = generate_cv_measures(classifier, X_set, y_set, mean_fpr)
     else:
-        f = IntProgress(min = 0, max = 1, bar_style = 'info', description = 'Training (1):')
-        display(f)
-        classifier.fit(X_train, y_train)
-        f.value += 1
+        for i in tqdm(range(1)):
+            classifier.fit(X_train, y_train)
+
     train_time = time.time() - start
 
     overall_report = measure_test_performace(classifier)
@@ -527,9 +521,8 @@ def split_dataframe_to_chunks(df, n):
 nonPulsarFolds = split_dataframe_to_chunks(nonPulsars_X, ceil(new_number_of_others / 45))
 pulsarFolds = split_dataframe_to_chunks(pulsars_X, ceil(number_of_pulsars / 5))
 
-# +
-from tqdm import tqdm
 
+# -
 
 def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
     tprs = []
@@ -538,9 +531,6 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
     i = 0
 
     combinations = list(map(lambda k: [k, k % number_of_pulsars_folds], range(0, number_of_non_pulsars_folds)))
-    #     f = IntProgress(min = 0, max = len(combinations), bar_style='info', description='Training (3):',
-    #                     layout=Layout(width='50%', height='80px'))
-    #     display(f)
     for np_k, p_k in tqdm(combinations):
         np_rest = list(range(0, number_of_non_pulsars_folds))
         np_rest.remove(np_k)
@@ -562,7 +552,6 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
         test_X = test_fold.filter(regex = "[^target]").values
         test_y = test_fold.target.values
         train_model(classifier, train_X, train_y, test_X, test_y, tprs, aucs, reports, mean_fpr)
-        #         f.value += 1
         i += 1
 
     result = dict()
@@ -570,9 +559,6 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
     result['aucs'] = aucs
     result['reports'] = reports
     return result
-
-
-# -
 
 
 # ### Logistic Regression Classifier
@@ -593,62 +579,62 @@ report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, 
 # ### C-Support Vector Classifier
 
 # +
-from sklearn import svm
+# from sklearn import svm
 
-classifier_svm_1 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-report_svm_1 = evaluate_classifier(classifier_svm_1)
+# classifier_svm_1 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+# report_svm_1 = evaluate_classifier(classifier_svm_1)
 
-classifier_svm_2 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-report_svm_2 = evaluate_classifier(classifier_svm_2, X_undersampled, y_undersampled, measures_stratified_cv)
+# classifier_svm_2 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+# report_svm_2 = evaluate_classifier(classifier_svm_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-classifier_svm_3 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-report_svm_3 = evaluate_classifier(classifier_svm_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+# classifier_svm_3 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+# report_svm_3 = evaluate_classifier(classifier_svm_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 
 # ### K-Neighbors Classifier
 
 # +
-from sklearn.neighbors import KNeighborsClassifier
+# from sklearn.neighbors import KNeighborsClassifier
 
-classifier_kn_1 = KNeighborsClassifier(n_neighbors = 13)
-report_kn_1 = evaluate_classifier(classifier_kn_1)
+# classifier_kn_1 = KNeighborsClassifier(n_neighbors = 13)
+# report_kn_1 = evaluate_classifier(classifier_kn_1)
 
-classifier_kn_2 = KNeighborsClassifier(n_neighbors = 13)
-report_kn_2 = evaluate_classifier(classifier_kn_2, X_undersampled, y_undersampled, measures_stratified_cv)
+# classifier_kn_2 = KNeighborsClassifier(n_neighbors = 13)
+# report_kn_2 = evaluate_classifier(classifier_kn_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-classifier_kn_3 = KNeighborsClassifier(n_neighbors = 13)
-report_kn_3 = evaluate_classifier(classifier_kn_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+# classifier_kn_3 = KNeighborsClassifier(n_neighbors = 13)
+# report_kn_3 = evaluate_classifier(classifier_kn_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### Decision Tree Classifier
 
 # +
-from sklearn.tree import DecisionTreeClassifier
+# from sklearn.tree import DecisionTreeClassifier
 
-classifier_dt_1 = DecisionTreeClassifier(random_state = 0)
-report_dt_1 = evaluate_classifier(classifier_dt_1)
+# classifier_dt_1 = DecisionTreeClassifier(random_state = 0)
+# report_dt_1 = evaluate_classifier(classifier_dt_1)
 
-classifier_dt_2 = DecisionTreeClassifier(random_state = 0)
-report_dt_2 = evaluate_classifier(classifier_dt_2, X_undersampled, y_undersampled, measures_stratified_cv)
+# classifier_dt_2 = DecisionTreeClassifier(random_state = 0)
+# report_dt_2 = evaluate_classifier(classifier_dt_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-classifier_dt_3 = DecisionTreeClassifier(random_state = 0)
-report_dt_3 = evaluate_classifier(classifier_dt_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+# classifier_dt_3 = DecisionTreeClassifier(random_state = 0)
+# report_dt_3 = evaluate_classifier(classifier_dt_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### Random Forest Classifier
 
 # +
-from sklearn.ensemble import RandomForestClassifier
+# from sklearn.ensemble import RandomForestClassifier
 
-classifier_rf_1 = RandomForestClassifier(n_estimators = 200, random_state = 0)
-report_rf_1 = evaluate_classifier(classifier_rf_1)
+# classifier_rf_1 = RandomForestClassifier(n_estimators = 200, random_state = 0)
+# report_rf_1 = evaluate_classifier(classifier_rf_1)
 
-classifier_rf_2 = RandomForestClassifier(n_estimators = 200, random_state = 0)
-report_rf_2 = evaluate_classifier(classifier_rf_2, X_undersampled, y_undersampled, measures_stratified_cv)
+# classifier_rf_2 = RandomForestClassifier(n_estimators = 200, random_state = 0)
+# report_rf_2 = evaluate_classifier(classifier_rf_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-classifier_rf_3 = RandomForestClassifier(n_estimators = 200, random_state = 0)
-report_rf_3 = evaluate_classifier(classifier_rf_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+# classifier_rf_3 = RandomForestClassifier(n_estimators = 200, random_state = 0)
+# report_rf_3 = evaluate_classifier(classifier_rf_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### Naive Bayes Classifier
@@ -687,10 +673,10 @@ report_rf_3 = evaluate_classifier(classifier_rf_3, nonPulsarFolds, pulsarFolds, 
 # +
 reports = np.array([
     [report_lr_1, report_lr_2, report_lr_3],
-    [report_svm_1, report_svm_2, report_svm_3],
-    [report_kn_1, report_kn_2, report_kn_3],
-    [report_dt_1, report_dt_2, report_dt_3],
-    [report_rf_1, report_rf_2, report_rf_3]
+    #     [report_svm_1, report_svm_2, report_svm_3],
+    #     [report_kn_1, report_kn_2, report_kn_3],
+    #     [report_dt_1, report_dt_2, report_dt_3],
+    #     [report_rf_1, report_rf_2, report_rf_3]
 ])
 
 classifier_names = ['Logistic Regression', 'C-Support Vector', 'K-Neighbors', 'Decision Tree', 'Random Forest',
