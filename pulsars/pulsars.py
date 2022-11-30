@@ -98,6 +98,87 @@ scaled_data.target.value_counts().plot(kind = 'pie', labels = ['Others (' + str(
                                                                'Pulsars (' + str(number_of_pulsars) + ')'],
                                        figsize = (7, 7), colors = ['#e5e5e5', '#a800a2'])
 
+# +
+from sklearn.decomposition import PCA
+
+groups = scaled_data.groupby(['target'])
+nonPulsarsG = groups.get_group(0)
+pulsarsG = groups.get_group(1)
+
+pca = PCA(n_components = 2, random_state = 0)
+pca.fit(scaled_data.filter(regex = "[^target]").values)
+nonPulsarComponents = pca.transform(nonPulsarsG.filter(regex = "[^target]").values)
+pulsarComponents = pca.transform(pulsarsG.filter(regex = "[^target]").values)
+
+others_color = '#dddddd'
+pulsars_color = '#a800a2'
+
+fig = plt.figure(figsize = (10, 10))
+ax1 = fig.add_subplot(111)
+ax1.scatter(nonPulsarComponents[:, 0], nonPulsarComponents[:, 1], s = 10, c = others_color, label = 'Non-Pulsars')
+ax1.scatter(pulsarComponents[:, 0], pulsarComponents[:, 1], s = 10, c = pulsars_color, label = 'Pulsars')
+ax1.axis('tight')
+plt.legend(loc = 'lower left');
+plt.show()
+
+# +
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.neighbors import LocalOutlierFactor
+
+outlier_contamination = 0.1
+pulsars_outlier_threshold = 0.3
+non_pulsars_outlier_threshold = 0.5
+
+fig = plt.figure(figsize = (16, 8))
+
+clf = LocalOutlierFactor(n_neighbors = 20, contamination = outlier_contamination)
+y_outlier_pred = clf.fit_predict(pulsarComponents)
+X_scores = clf.negative_outlier_factor_
+ax1 = fig.add_subplot(121)
+ax1.scatter(pulsarComponents[:, 0], pulsarComponents[:, 1], color = pulsars_color, s = 3., label = 'Pulsars')
+pulsars_radius = (X_scores.max() - X_scores) / (X_scores.max() - X_scores.min())
+pulsars_radius[pulsars_radius < pulsars_outlier_threshold] = 0
+ax1.scatter(pulsarComponents[:, 0], pulsarComponents[:, 1], s = 1000 * pulsars_radius, edgecolors = 'r',
+            facecolors = 'none', label = 'Outliers')
+ax1.axis('tight')
+legend = ax1.legend(loc = 'lower left')
+legend.legendHandles[1]._sizes = [20]
+
+clf = LocalOutlierFactor(n_neighbors = 20, contamination = outlier_contamination)
+y_outlier_pred = clf.fit_predict(nonPulsarComponents)
+X_scores = clf.negative_outlier_factor_
+ax1 = fig.add_subplot(122)
+ax1.scatter(nonPulsarComponents[:, 0], nonPulsarComponents[:, 1], color = '#999999', s = 3., label = 'Non-Pulsars')
+non_pulsars_radius = (X_scores.max() - X_scores) / (X_scores.max() - X_scores.min())
+non_pulsars_radius[non_pulsars_radius < non_pulsars_outlier_threshold] = 0
+ax1.scatter(nonPulsarComponents[:, 0], nonPulsarComponents[:, 1], s = 1000 * non_pulsars_radius, edgecolors = 'r',
+            facecolors = 'none', label = 'Outliers')
+ax1.axis('tight')
+legend = ax1.legend(loc = 'lower left')
+legend.legendHandles[1]._sizes = [20]
+
+plt.show()
+
+# +
+remove_outliers = True
+
+clear_data = scaled_data.copy()
+
+if remove_outliers:
+    outlier_positions = np.where(non_pulsars_radius > 0)[0]
+    outlier_indexes = list(map(lambda position: nonPulsarsG.index[position], outlier_positions))
+    nonPulsarsOutliers = nonPulsarsG.iloc[outlier_positions, :]
+    nonPulsarsClear = nonPulsarsG.drop(outlier_indexes)
+
+    outlier_positions = np.where(pulsars_radius > 0)[0]
+    outlier_indexes = list(map(lambda position: pulsarsG.index[position], outlier_positions))
+    pulsarsOutliers = pulsarsG.iloc[outlier_positions, :]
+    pulsarsClear = pulsarsG.drop(outlier_indexes)
+
+    clear_data = pd.concat([nonPulsarsClear, pulsarsClear]).sample(frac = 1, random_state = 1).reset_index(drop = True)
+# -
+
 # ## Classification Model
 
 # We split our data to train and test sets
@@ -105,8 +186,8 @@ scaled_data.target.value_counts().plot(kind = 'pie', labels = ['Others (' + str(
 # +
 from sklearn.model_selection import KFold, cross_val_score, cross_validate, train_test_split
 
-X = scaled_data.filter(regex = "[^target]").values
-y = scaled_data.target.values
+X = clear_data.filter(regex = "[^target]").values
+y = clear_data.target.values
 # -
 
 # ### Method 1
@@ -119,9 +200,18 @@ from sklearn.metrics import roc_curve, auc, f1_score, classification_report
 test_size = 0.3
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state = 0)
+
+# Add outliers to the test set
+if remove_outliers:
+    X_test = np.vstack(
+        [nonPulsarsOutliers.filter(regex = "[^target]").values, pulsarsOutliers.filter(regex = "[^target]").values,
+         X_test])
+    y_test = np.hstack([nonPulsarsOutliers.target.values, pulsarsOutliers.target.values, y_test])
+
 target_names = ['Non-pulsars', 'Pulsars']
 
-def measure_test_performace(classifier): 
+
+def measure_test_performace(classifier):
     y_pred = classifier.predict(X_test)
     report = benedict(classification_report(y_test, y_pred, target_names = target_names, output_dict = True))
 
@@ -130,6 +220,7 @@ def measure_test_performace(classifier):
     report['auc'] = auc(fpr, tpr)
     report['fpr'] = fpr
     report['tpr'] = tpr
+    report['predict_time'] = 1
     return report
 
 
@@ -164,6 +255,7 @@ from sklearn.metrics import roc_curve, auc, f1_score, classification_report
 from sklearn.model_selection import StratifiedKFold
 from matplotlib.pyplot import figure
 from functools import reduce
+import time
 
 
 def average_report(reports):
@@ -209,16 +301,20 @@ def measures_stratified_cv(classifier, X_set, y_set, mean_fpr):
 
 def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_measures = None):
     fig = plt.figure(figsize = (17, 4))
-    
+
+    start = time.time()
     if generate_cv_measures is not None:
         mean_fpr = np.linspace(0, 1, 100)
         measures = generate_cv_measures(classifier, X_set, y_set, mean_fpr)
-        
+    else:
+        classifier.fit(X_train, y_train)
+    train_time = time.time() - start
+
     overall_report = measure_test_performace(classifier)
-        
+
     ax1 = fig.add_subplot(121)
     plt.rcParams["figure.figsize"] = (5, 5)
-        
+
     if generate_cv_measures is not None:
         tprs = measures['tprs']
         aucs = measures['aucs']
@@ -241,7 +337,7 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
         tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
         ax1.fill_between(mean_fpr, tprs_lower, tprs_upper, color = 'grey', alpha = 0.2,
                          label = r'$\pm$ $\sigma$')
-        
+
     ax1.set_aspect(1.0)
     plt.xlim([0, 0.25])
     plt.ylim([0.75, 1])
@@ -256,11 +352,12 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
 
     if generate_cv_measures is not None:
         report = average_report(reports)
+
         def rf(path):
-            return "{0:.5f}".format(report[path])
+            return "{0:.4f}".format(report[path])
 
     def gf(path):
-        return "{0:.5f}".format(overall_report[path])
+        return "{0:.4f}".format(overall_report[path])
 
     if generate_cv_measures is not None:
         cell_text = [
@@ -280,14 +377,14 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
             [gf('macro avg.precision'), gf('macro avg.recall'), gf('macro avg.f1-score')],
             [gf('weighted avg.precision'), gf('weighted avg.recall'), gf('weighted avg.f1-score')]]
 
-
     rows_labels = ['Non-Pulsars', 'Pulsars', 'Macro Avg', 'Weighted Avg']
-    
+
     if generate_cv_measures is not None:
-        column_labels = ['CV Avg\nPrecision', 'CV Avg\nRecall', 'CV Avg\nF1-measure', 'Test\nPrecision', 'Test\nRecall', 'Test\nF1-measure']
+        column_labels = ['CV Avg\nPrecision', 'CV Avg\nRecall', 'CV Avg\nF1-measure', 'Test\nPrecision', 'Test\nRecall',
+                         'Test\nF1-measure']
     else:
         column_labels = ['Test\nPrecision', 'Test\nRecall', 'Test\nF1-measure']
-        
+
     gray = '#dddddd'
     purple = '#eeddee'
     gray_l = '#efefef'
@@ -308,32 +405,47 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
             [purple, purple, purple],
             [purple, purple, purple],
         ]
-    
+
     if generate_cv_measures is not None:
         foolter_cell_colors = [[gray_l, gray_l, purple_l, purple_l]]
-        cellText = [[r'AUC: %0.5f' % mean_auc, 'Accuracy: ' + rf('accuracy'), r'AUC: %0.5f' % overall_report['auc'], 'Accuracy: ' + gf('accuracy')]]
+        cellText = [[r'AUC: %0.4f' % mean_auc, 'Accuracy: ' + rf('accuracy'), r'AUC: %0.4f' % overall_report['auc'],
+                     'Accuracy: ' + gf('accuracy')]]
     else:
         foolter_cell_colors = [[purple_l, purple_l]]
-        cellText = [[r'AUC: %0.5f' % overall_report['auc'], 'Accuracy: ' + gf('accuracy')]]   
-        
-    footer = plt.table(cellText = cellText,
-                         colLabels=['', '', '', ''],
-                         loc='bottom',
-                         cellColours = foolter_cell_colors,
-                         cellLoc = 'center',
-                         bbox=[0, -0.09, 1, 0.3])
+        cellText = [[r'AUC: %0.4f' % overall_report['auc'], 'Accuracy: ' + gf('accuracy')]]
 
-    footer.scale(1, 3.2)
+    vertical_scaling = 2.5
+    footer_2 = plt.table(cellText = [['Train time: %0.4f' % train_time, '2']],
+                         colLabels = ['', ''],
+                         loc = 'bottom',
+                         cellColours = [['w', 'w']],
+                         cellLoc = 'center',
+                         bbox = [0, -0.1, 1, 0.26])
+
+    footer_2.scale(1, vertical_scaling)
+    footer_2.auto_set_font_size(False)
+    footer_2.set_fontsize(font_size)
+
+    footer = plt.table(cellText = cellText,
+                       colLabels = ['', '', '', ''],
+                       loc = 'bottom',
+                       cellColours = foolter_cell_colors,
+                       cellLoc = 'center',
+                       bbox = [0, 0.025, 1, 0.26])
+
+    footer.scale(1, vertical_scaling)
     footer.auto_set_font_size(False)
     footer.set_fontsize(font_size)
 
-    table = ax2.table(cellText = cell_text, rowLabels = rows_labels, cellColours = colors, 
+    table = ax2.table(cellText = cell_text, rowLabels = rows_labels, cellColours = colors,
                       colLabels = column_labels, loc = 'center', cellLoc = 'center')
-    table.scale(1, 3.2)
+    table.scale(1, vertical_scaling)
     table.auto_set_font_size(False)
     table.set_fontsize(font_size)
-        
+
     return overall_report
+
+
 # -
 
 # ### Method 3
@@ -350,7 +462,7 @@ non_pulsars_to_pulsars_ratio = floor(train_number_of_others / train_number_of_pu
 number_of_pulsars_folds = 5
 number_of_non_pulsars_folds = number_of_pulsars_folds * non_pulsars_to_pulsars_ratio
 
-groups = scaled_data.groupby(['target'])
+groups = clear_data.groupby(['target'])
 nonPulsars = groups.get_group(0)
 pulsars = groups.get_group(1)
 
@@ -401,7 +513,7 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
 
     combinations = list(map(lambda k: [k, k % number_of_pulsars_folds], range(0, number_of_non_pulsars_folds)))
     for np_k, p_k in combinations:
-#         print(str(i))
+        #         print(str(i))
         np_rest = list(range(0, number_of_non_pulsars_folds))
         np_rest.remove(np_k)
 
@@ -436,15 +548,14 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
 # +
 from sklearn.linear_model import LogisticRegression
 
-classifier = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-classifier.fit(X_train, y_train)
-r = evaluate_classifier(classifier)
+classifier_lr_1 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+report_lr_1 = evaluate_classifier(classifier_lr_1)
 
-classifier_lr_u = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-avg_report_lr_u = evaluate_classifier(classifier_lr_u, X_undersampled, y_undersampled, measures_stratified_cv)
+classifier_lr_2 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+report_lr_2 = evaluate_classifier(classifier_lr_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-classifier_lr_f = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-avg_report_lr_f = evaluate_classifier(classifier_lr_f, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+classifier_lr_3 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### C-Support Vector Classifier
@@ -615,5 +726,3 @@ avg_report_lr_f = evaluate_classifier(classifier_lr_f, nonPulsarFolds, pulsarFol
 #                            solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
 # avg_report_mlp = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
-
-
