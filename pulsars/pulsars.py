@@ -267,6 +267,8 @@ from sklearn.model_selection import StratifiedKFold
 from matplotlib.pyplot import figure
 from functools import reduce
 import time
+from ipywidgets import IntProgress
+from IPython.display import display
 
 
 def average_report(reports):
@@ -295,15 +297,21 @@ def train_model(classifier, X_train, y_train, X_test, y_test, tprs, aucs, report
 
 
 def measures_stratified_cv(classifier, X_set, y_set, mean_fpr):
-    cv = StratifiedKFold(n_splits = 5, random_state = 0)
+    folds = 5
+    cv = StratifiedKFold(n_splits = folds, random_state = 0)
     tprs = []
     aucs = []
     reports = []
+
     i = 0
+    f = IntProgress(min = 0, max = folds, bar_style = 'info', description = 'Training (2):')
+    display(f)
     for train, test in cv.split(X_set, y_set):
-        print(str(i))
+        #         print(str(i))
         train_model(classifier, X_set[train], y_set[train], X_set[test], y_set[test], tprs, aucs, reports, mean_fpr)
+        f.value += 1
         i += 1
+
     result = dict()
     result['tprs'] = tprs
     result['aucs'] = aucs
@@ -319,7 +327,10 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
         mean_fpr = np.linspace(0, 1, 100)
         measures = generate_cv_measures(classifier, X_set, y_set, mean_fpr)
     else:
+        f = IntProgress(min = 0, max = 1, bar_style = 'info', description = 'Training (1):')
+        display(f)
         classifier.fit(X_train, y_train)
+        f.value += 1
     train_time = time.time() - start
 
     overall_report = measure_test_performace(classifier)
@@ -516,8 +527,9 @@ def split_dataframe_to_chunks(df, n):
 nonPulsarFolds = split_dataframe_to_chunks(nonPulsars_X, ceil(new_number_of_others / 45))
 pulsarFolds = split_dataframe_to_chunks(pulsars_X, ceil(number_of_pulsars / 5))
 
+# +
+from tqdm import tqdm
 
-# -
 
 def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
     tprs = []
@@ -526,8 +538,10 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
     i = 0
 
     combinations = list(map(lambda k: [k, k % number_of_pulsars_folds], range(0, number_of_non_pulsars_folds)))
-    for np_k, p_k in combinations:
-        print(str(i))
+    #     f = IntProgress(min = 0, max = len(combinations), bar_style='info', description='Training (3):',
+    #                     layout=Layout(width='50%', height='80px'))
+    #     display(f)
+    for np_k, p_k in tqdm(combinations):
         np_rest = list(range(0, number_of_non_pulsars_folds))
         np_rest.remove(np_k)
 
@@ -548,6 +562,7 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
         test_X = test_fold.filter(regex = "[^target]").values
         test_y = test_fold.target.values
         train_model(classifier, train_X, train_y, test_X, test_y, tprs, aucs, reports, mean_fpr)
+        #         f.value += 1
         i += 1
 
     result = dict()
@@ -557,34 +572,37 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
     return result
 
 
+# -
+
+
 # ### Logistic Regression Classifier
 
 # +
-# from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression
 
-# classifier_lr_1 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-# report_lr_1 = evaluate_classifier(classifier_lr_1)
+classifier_lr_1 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+report_lr_1 = evaluate_classifier(classifier_lr_1)
 
-# classifier_lr_2 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-# report_lr_2 = evaluate_classifier(classifier_lr_2, X_undersampled, y_undersampled, measures_stratified_cv)
+classifier_lr_2 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+report_lr_2 = evaluate_classifier(classifier_lr_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-# classifier_lr_3 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
-# report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+classifier_lr_3 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
+report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 # ### C-Support Vector Classifier
 
 # +
-# from sklearn import svm
+from sklearn import svm
 
-# classifier_svm_1 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-# report_svm_1 = evaluate_classifier(classifier_svm_1)
+classifier_svm_1 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+report_svm_1 = evaluate_classifier(classifier_svm_1)
 
-# classifier_svm_2 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-# report_svm_2 = evaluate_classifier(classifier_svm_2, X_undersampled, y_undersampled, measures_stratified_cv)
+classifier_svm_2 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+report_svm_2 = evaluate_classifier(classifier_svm_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
-# classifier_svm_3 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
-# report_svm_3 = evaluate_classifier(classifier_svm_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+classifier_svm_3 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
+report_svm_3 = evaluate_classifier(classifier_svm_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
 
