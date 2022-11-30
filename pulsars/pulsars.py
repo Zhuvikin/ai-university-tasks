@@ -28,14 +28,42 @@
 
 # ## Data Overview
 
-# The dataset is downloaded and available in the folder `../../data/pulsar_stars/`. We import the CSV file by means of Pandas 
+# The dataset is downloaded and available in the folder `../data/pulsar_stars/`. We import the CSV file by means of Pandas 
 
 # +
+import random
+import time
+from functools import reduce
+from math import floor, ceil
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 import pandas as pd
+import seaborn as sns
+from benedict import benedict
+# from imblearn.over_sampling import ADASYN
+from imblearn.under_sampling import RandomUnderSampler
+from scipy import interp
+from sklearn import svm
+from sklearn.decomposition import PCA
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_curve, auc, classification_report
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+from tqdm import tqdm
+# -
 
 data = pd.read_csv('../data/pulsar_stars/pulsar_stars.csv')
 data.head(5)
-# -
 
 # Let us rename the columns to have more compact titles
 
@@ -54,21 +82,14 @@ data.describe()
 
 # It can be seen that standard deviations of features are in range from `1.064040` to `106.514540` and all attributes have non-zero means. We scale the dataset to have unit variances and zero means because it is more convinient to work with.
 
-# +
-from sklearn.preprocessing import StandardScaler
-
 scaler = StandardScaler()
 scaled_data = data.copy()
 scaled_data[column_names] = scaler.fit_transform(data[column_names].to_numpy())
 scaled_data.describe()
-# -
 
 # In order to see if there is dependence between features let us build the correlation matrix 
 
 # +
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 # %matplotlib inline
 
 palette = sns.light_palette("purple", reverse = True)
@@ -82,12 +103,12 @@ plt.show()
 # There is a strong correlation between `IP3` - `IP4` and `DM3` - `DM4`. However, not every feature is important for our classification issue. This is clearly seen from the following pairwise relationships. The purple points represent pulsars. The distribution densities are fit by histograms and ploted along the main diagnoal for each of the features.
 
 # +
-# palette2 = sns.color_palette(["#bbbbbb", "#a800a2"])
+palette2 = sns.color_palette(["#bbbbbb", "#a800a2"])
 
-# pg = sns.PairGrid(scaled_data, palette = palette2, hue = "target", hue_order = [0, 1], vars = column_names)
+pg = sns.PairGrid(scaled_data, palette = palette2, hue = "target", hue_order = [0, 1], vars = column_names)
 
-# pg.map_diag(sns.kdeplot),
-# pg.map_offdiag(plt.scatter, s = 2, alpha = 0.2)
+pg.map_diag(sns.kdeplot),
+pg.map_offdiag(plt.scatter, s = 2, alpha = 0.2)
 # -
 
 # It can be seen that some features allows one to split the data set linearly very well.
@@ -102,8 +123,6 @@ scaled_data.target.value_counts().plot(kind = 'pie', labels = ['Others (' + str(
 # Next, we reduce the dimension of the features using PCA in order to take a look on the data clusters
 
 # +
-from sklearn.decomposition import PCA
-
 groups = scaled_data.groupby(['target'])
 nonPulsarsG = groups.get_group(0)
 pulsarsG = groups.get_group(1)
@@ -128,10 +147,6 @@ plt.show()
 # It is clearly seen that the clusters have some anomalies. Let's remove it by means of Local Outlier Factor alghorithm
 
 # +
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.neighbors import LocalOutlierFactor
-
 outlier_contamination = 0.1
 pulsars_outlier_threshold = 0.3
 non_pulsars_outlier_threshold = 0.5
@@ -194,8 +209,6 @@ if remove_outliers:
 # 2. Split the pulsars subset to 5 folds. Split non-pulsars to folds with the same size as for pulsars. The method gives 50 folds (5 for pulsars and 45 for non-pulsars) in total. The training is performed using cross-validation
 
 # +
-from sklearn.model_selection import KFold, cross_val_score, cross_validate, train_test_split
-
 X = clear_data.filter(regex = "[^target]").values
 y = clear_data.target.values
 
@@ -206,12 +219,6 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size,
 # ### Method 1
 
 # +
-from benedict import benedict
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_curve, auc, f1_score, classification_report
-from tqdm import tqdm
-
-
 # Add outliers to the test set
 if remove_outliers:
     X_test = np.vstack(
@@ -252,9 +259,6 @@ def measure_test_performace(classifier):
 # Let resample our training data to have equal amount of pulsars and the other stars. We use undersampling technique for the further research as it shows better training results.
 
 # +
-# from imblearn.over_sampling import ADASYN
-from imblearn.under_sampling import RandomUnderSampler
-
 # sampler = ADASYN()
 # X_oversampled, y_oversampled = sampler.fit_sample(X, y)
 
@@ -264,21 +268,14 @@ X_undersampled, y_undersampled = sampler.fit_sample(X_train, y_train)
 print(X.shape)
 # print(X_oversampled.shape)
 print(X_undersampled.shape)
+
+
 # -
 
 # Implement classifier evaluation helper function using cross-validation and ROC analysis. We use Stratified K-Fold alghoritm in order to split our data for the training and validation
 
 
 # +
-import numpy as np
-from scipy import interp
-from sklearn.metrics import roc_curve, auc, f1_score, classification_report
-from sklearn.model_selection import StratifiedKFold
-from matplotlib.pyplot import figure
-from functools import reduce
-import time
-
-
 def average_report(reports):
     result = benedict()
     for path in set(benedict(reports[0]).keypaths()).difference(
@@ -479,9 +476,6 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
 # ### Method 3
 
 # +
-from math import floor, ceil
-import random
-
 train_number_of_others = floor((1 - test_size) * number_of_others)
 train_number_of_pulsars = floor((1 - test_size) * number_of_pulsars)
 
@@ -573,8 +567,6 @@ def measures_full_set_cv(classifier, nonPulsarFolds, pulsarFolds, mean_fpr):
 # ### Logistic Regression Classifier
 
 # +
-from sklearn.linear_model import LogisticRegression
-
 classifier_lr_1 = LogisticRegression(solver = 'lbfgs', random_state = 0, class_weight = 'balanced')
 report_lr_1 = evaluate_classifier(classifier_lr_1)
 
@@ -588,8 +580,6 @@ report_lr_3 = evaluate_classifier(classifier_lr_3, nonPulsarFolds, pulsarFolds, 
 # ### C-Support Vector Classifier
 
 # +
-from sklearn import svm
-
 classifier_svm_1 = svm.SVC(kernel = 'linear', probability = True, random_state = 0, class_weight = 'balanced')
 report_svm_1 = evaluate_classifier(classifier_svm_1)
 
@@ -604,8 +594,6 @@ report_svm_3 = evaluate_classifier(classifier_svm_3, nonPulsarFolds, pulsarFolds
 # ### K-Neighbors Classifier
 
 # +
-from sklearn.neighbors import KNeighborsClassifier
-
 classifier_kn_1 = KNeighborsClassifier(n_neighbors = 13)
 report_kn_1 = evaluate_classifier(classifier_kn_1)
 
@@ -619,8 +607,6 @@ report_kn_3 = evaluate_classifier(classifier_kn_3, nonPulsarFolds, pulsarFolds, 
 # ### Decision Tree Classifier
 
 # +
-from sklearn.tree import DecisionTreeClassifier
-
 classifier_dt_1 = DecisionTreeClassifier(random_state = 0)
 report_dt_1 = evaluate_classifier(classifier_dt_1)
 
@@ -634,8 +620,6 @@ report_dt_3 = evaluate_classifier(classifier_dt_3, nonPulsarFolds, pulsarFolds, 
 # ### Random Forest Classifier
 
 # +
-from sklearn.ensemble import RandomForestClassifier
-
 classifier_rf_1 = RandomForestClassifier(n_estimators = 200, random_state = 0)
 report_rf_1 = evaluate_classifier(classifier_rf_1)
 
@@ -649,8 +633,6 @@ report_rf_3 = evaluate_classifier(classifier_rf_3, nonPulsarFolds, pulsarFolds, 
 # ### Naive Bayes Classifier
 
 # +
-from sklearn.naive_bayes import GaussianNB
-
 classifier_nb_1 = GaussianNB()
 report_nb_1 = evaluate_classifier(classifier_nb_1)
 
@@ -664,8 +646,6 @@ report_nb_3 = evaluate_classifier(classifier_nb_3, nonPulsarFolds, pulsarFolds, 
 # ### Gradient Boosting Classifier
 
 # +
-from sklearn.ensemble import GradientBoostingClassifier
-
 classifier_gb_1 = GradientBoostingClassifier(n_estimators = 150, learning_rate = 0.1, max_features = 2,
                                              max_depth = 2, random_state = 0)
 report_gb_1 = evaluate_classifier(classifier_gb_1)
@@ -682,18 +662,16 @@ report_gb_3 = evaluate_classifier(classifier_gb_3, nonPulsarFolds, pulsarFolds, 
 # ### Neural Network Classifier
 
 # +
-from sklearn.neural_network import MLPClassifier
-
 classifier_nn_1 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
-                           solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
+                                solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
 report_nn_1 = evaluate_classifier(classifier_nn_1)
 
 classifier_nn_2 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
-                           solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
+                                solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
 report_nn_2 = evaluate_classifier(classifier_nn_2, X_undersampled, y_undersampled, measures_stratified_cv)
 
 classifier_nn_3 = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
-                           solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
+                                solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
 report_nn_3 = evaluate_classifier(classifier_nn_3, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
 # -
 
@@ -789,4 +767,4 @@ c_results.reindex(sorted(c_results.columns), axis = 1).T.style.applymap(highligh
 
 # ## Conclusion
 
-# Various ML algorithms for the task of pulsars detection are evaluated. The source is re-scaled and re-balanced to have zero mean, unit variance and the same amount of elements in both target classes. We evaluated C-Support Vector, Logistic Regression, K-Neighbors, Decision Tree, Random Forest, Naive Bayes, Gradient Boosting and Neural Network classifiers in order to determine the best one. The general discriminitive ability is given by the area under ROC curve. Third method with adaptive custom cross validation and random forest algorithm shows the best quality of classification. However, the train time is not so good and it takes more time to predict. 
+# Various ML algorithms for the task of pulsars detection are evaluated. The source is re-scaled and re-balanced to have zero mean, unit variance and the same amount of elements in both target classes. We evaluated C-Support Vector, Logistic Regression, K-Neighbors, Decision Tree, Random Forest, Naive Bayes, Gradient Boosting and Neural Network classifiers in order to determine the best one. The general discriminitive ability is given by the area under ROC curve. Third method with adaptive custom cross validation and random forest algorithm shows the best quality of classification. However, the train time is not so good and it takes more time to predict.
