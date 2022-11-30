@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -220,7 +221,17 @@ def measure_test_performace(classifier):
     report['auc'] = auc(fpr, tpr)
     report['fpr'] = fpr
     report['tpr'] = tpr
-    report['predict_time'] = 1
+
+    sample = scaled_data.filter(regex = "[^target]").values
+
+    start = time.time()
+    for i in range(1000):
+        classifier.predict(sample[[i]])
+
+    prediction_time = time.time() - start
+
+    report['prediction_time'] = prediction_time / 1000
+
     return report
 
 
@@ -415,7 +426,8 @@ def evaluate_classifier(classifier, X_set = None, y_set = None, generate_cv_meas
         cellText = [[r'AUC: %0.4f' % overall_report['auc'], 'Accuracy: ' + gf('accuracy')]]
 
     vertical_scaling = 2.5
-    footer_2 = plt.table(cellText = [['Train time: %0.4f' % train_time, '2']],
+    footer_2 = plt.table(cellText = [['Train time: %0.4f ms' % (train_time * 1000),
+                                      'Prediction time: %0.4f µs' % (overall_report['prediction_time'] * 1000000)]],
                          colLabels = ['', ''],
                          loc = 'bottom',
                          cellColours = [['w', 'w']],
@@ -725,4 +737,3 @@ avg_report_lr_f = evaluate_classifier(classifier_lr_f, nonPulsarFolds, pulsarFol
 # classifier = MLPClassifier(hidden_layer_sizes = (8, 4, 2), max_iter = 500, alpha = 0.00025,
 #                            solver = 'adam', verbose = 0, random_state = 21, tol = 0.000000001, activation = 'relu')
 # avg_report_mlp = evaluate_classifier(classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
-# -
