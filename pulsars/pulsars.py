@@ -766,6 +766,70 @@ c_results.reindex(sorted(c_results.columns), axis = 1).T.style.applymap(highligh
 
 # The greatest values of correspondent measures are highlighted. It can be seen that the best ML alghorithm for pulsars classification depends on what measure is going to be used
 
+# +
+estimators = [1, 3, 10, 100, 300]
+max_depths = [2, 5, 10, 15, 20, 25, 30, 35, 40]
+
+s_reports = benedict()
+
+for d in max_depths:
+    for e in estimators:
+        print(str(d) + '.' + str(e) + ':')
+        s_classifier = RandomForestClassifier(n_estimators = e, max_depth = d, random_state = 0)
+        s_report = evaluate_classifier(s_classifier, nonPulsarFolds, pulsarFolds, measures_full_set_cv)
+        s_reports[str(d) + '.' + str(e)] = s_report
+
+# +
+aucs_x = list(map(lambda e: list(map(lambda d: s_reports[str(d) + '.' + str(e) + '.auc'], max_depths)), estimators))
+auccuracies_x = list(map(lambda e: list(map(lambda d: s_reports[str(d) + '.' + str(e) + '.accuracy'], max_depths)), estimators))
+recalls_x = list(map(lambda e: list(map(lambda d: s_reports[str(d) + '.' + str(e) + '.Pulsars.recall'], max_depths)), estimators))
+f1measures_x = list(map(lambda e: list(map(lambda d: s_reports[str(d) + '.' + str(e) + '.Pulsars.f1-score'], max_depths)), estimators))
+precisions_x = list(map(lambda e: list(map(lambda d: s_reports[str(d) + '.' + str(e) + '.Pulsars.precision'], max_depths)), estimators))
+train_times_x = list(map(lambda e: list(map(lambda d: s_reports[str(d) + '.' + str(e) + '.train_time'], max_depths)), estimators))
+
+fig = plt.figure(figsize = (16, 16))
+
+ax1 = fig.add_subplot(321)
+ax1.plot(np.array([max_depths] * len(estimators)).T, np.array(aucs_x).T)
+plt.ylabel('AUC')
+plt.xlabel('Max Depth')
+ax1.legend(list(map(lambda e: str(e) + ' estimators', estimators)), loc = 'lower right');
+
+ax2 = fig.add_subplot(322)
+ax2.plot(np.array([max_depths] * len(estimators)).T, np.array(auccuracies_x).T)
+plt.ylabel('Accuracy')
+plt.xlabel('Max Depth')
+ax2.legend(list(map(lambda e: str(e) + ' estimators', estimators)), loc = 'lower right');
+
+ax3 = fig.add_subplot(323)
+ax3.plot(np.array([max_depths] * len(estimators)).T, np.array(recalls_x).T)
+plt.ylabel('Recall')
+plt.xlabel('Max Depth')
+ax3.legend(list(map(lambda e: str(e) + ' estimators', estimators)), loc = 'lower right');
+
+ax4 = fig.add_subplot(324)
+ax4.plot(np.array([max_depths] * len(estimators)).T, np.array(f1measures_x).T)
+plt.ylabel('F1')
+plt.xlabel('Max Depth')
+ax4.legend(list(map(lambda e: str(e) + ' estimators', estimators)), loc = 'lower right');
+
+ax5 = fig.add_subplot(325)
+ax5.plot(np.array([max_depths] * len(estimators)).T, np.array(precisions_x).T)
+plt.ylabel('Precision')
+plt.xlabel('Max Depth')
+ax5.legend(list(map(lambda e: str(e) + ' estimators', estimators)), loc = 'lower right');
+
+ax6 = fig.add_subplot(326)
+ax6.plot(np.array([max_depths] * len(estimators)).T, np.array(train_times_x).T)
+plt.ylabel('Train time')
+plt.xlabel('Max Depth')
+ax6.legend(list(map(lambda e: str(e) + ' estimators', estimators)), loc = 'lower right');
+
+plt.subplots_adjust(wspace = 0.3, hspace = 0.3)
+
+plt.show()
+# -
+
 # ## Conclusion
 
 # Various ML algorithms for the task of pulsars detection are evaluated. The source is re-scaled and re-balanced to have zero mean, unit variance and the same amount of elements in both target classes. We evaluated C-Support Vector, Logistic Regression, K-Neighbors, Decision Tree, Random Forest, Naive Bayes, Gradient Boosting and Neural Network classifiers in order to determine the best one. The general discriminitive ability is given by the area under ROC curve. Third method with adaptive custom cross validation and random forest algorithm shows the best quality of classification. However, the train time is not so good and it takes more time to predict.
